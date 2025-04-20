@@ -50,7 +50,7 @@ export default [
         name: 'Doc',
         component: IFrame,
         meta: {
-          frameSrc: 'https://tdesign.tencent.com/starter/docs/vue-next/get-started',
+          frameSrc: 'https://naspt.vip',
           title: {
             zh_CN: '使用文档（内嵌）',
             en_US: 'Documentation(IFrame)',
@@ -62,11 +62,8 @@ export default [
         name: 'TDesign',
         component: IFrame,
         meta: {
-          frameSrc: 'https://tdesign.tencent.com/vue-next/getting-started',
-          title: {
-            zh_CN: 'TDesign 文档（内嵌）',
-            en_US: 'TDesign (IFrame)',
-          },
+          frameSrc: 'https://pan.naspt.vip',
+          title: '资源下载网盘（内嵌）',
         },
       },
       {
@@ -74,12 +71,9 @@ export default [
         name: 'TDesign2',
         component: IFrame,
         meta: {
-          frameSrc: 'https://tdesign.tencent.com/vue-next/getting-started',
+          frameSrc: 'https://pan.naspt.vip',
           frameBlank: true,
-          title: {
-            zh_CN: 'TDesign 文档（外链',
-            en_US: 'TDesign Doc(Link)',
-          },
+          title: '资源下载网盘（外链）',
         },
       },
     ],

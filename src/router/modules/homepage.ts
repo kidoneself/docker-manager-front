@@ -1,7 +1,7 @@
 import { DashboardIcon } from 'tdesign-icons-vue-next';
 import { shallowRef } from 'vue';
-
 import Layout from '@/layouts/index.vue';
+import IFrame from '@/layouts/frame/index.vue';
 
 export default [
   {
@@ -44,21 +44,21 @@ export default [
   },
   {
     path: '/list',
-    name: 'list',
-    component: 'LAYOUT',
+    component: Layout,
     redirect: '/list/base',
+    name: 'list',
     meta: {
       title: {
         zh_CN: '列表页',
         en_US: 'List',
       },
-      icon: 'view-list',
+      icon: shallowRef(DashboardIcon),
     },
     children: [
       {
         path: 'base',
         name: 'ListBase',
-        component: '/list/base/index',
+        component: () => import('@/pages/list/base/index.vue'),
         meta: {
           title: {
             zh_CN: '基础列表页',
@@ -69,7 +69,7 @@ export default [
       {
         path: 'card',
         name: 'ListCard',
-        component: '/list/card/index',
+        component: () => import('@/pages/list/card/index.vue'),
         meta: {
           title: {
             zh_CN: '卡片列表页',
@@ -80,7 +80,7 @@ export default [
       {
         path: 'filter',
         name: 'ListFilter',
-        component: '/list/filter/index',
+        component: () => import('@/pages/list/filter/index.vue'),
         meta: {
           title: {
             zh_CN: '筛选列表页',
@@ -91,7 +91,7 @@ export default [
       {
         path: 'tree',
         name: 'ListTree',
-        component: '/list/tree/index',
+        component: () => import('@/pages/list/tree/index.vue'),
         meta: {
           title: {
             zh_CN: '树状筛选列表页',
@@ -104,7 +104,7 @@ export default [
   {
     path: '/form',
     name: 'form',
-    component: 'LAYOUT',
+    component: Layout,
     redirect: '/form/base',
     meta: {
       title: {
@@ -117,7 +117,7 @@ export default [
       {
         path: 'base',
         name: 'FormBase',
-        component: '/form/base/index',
+        component: () => import('@/pages/form/base/index.vue'),
         meta: {
           title: {
             zh_CN: '基础表单页',
@@ -128,7 +128,7 @@ export default [
       {
         path: 'step',
         name: 'FormStep',
-        component: '/form/step/index',
+        component: () => import('@/pages/form/step/index.vue'),
         meta: {
           title: {
             zh_CN: '分步表单页',
@@ -141,7 +141,7 @@ export default [
   {
     path: '/detail',
     name: 'detail',
-    component: 'LAYOUT',
+    component: Layout,
     redirect: '/detail/base',
     meta: {
       title: {
@@ -154,7 +154,7 @@ export default [
       {
         path: 'base',
         name: 'DetailBase',
-        component: '/detail/base/index',
+        component: () => import('@/pages/detail/base/index.vue'),
         meta: {
           title: {
             zh_CN: '基础详情页',
@@ -165,7 +165,7 @@ export default [
       {
         path: 'advanced',
         name: 'DetailAdvanced',
-        component: '/detail/advanced/index',
+        component: () => import('@/pages/detail/advanced/index.vue'),
         meta: {
           title: {
             zh_CN: '多卡片详情页',
@@ -176,7 +176,7 @@ export default [
       {
         path: 'deploy',
         name: 'DetailDeploy',
-        component: '/detail/deploy/index',
+        component: () => import('@/pages/detail/deploy/index.vue'),
         meta: {
           title: {
             zh_CN: '数据详情页',
@@ -187,7 +187,7 @@ export default [
       {
         path: 'secondary',
         name: 'DetailSecondary',
-        component: '/detail/secondary/index',
+        component: () => import('@/pages/detail/secondary/index.vue'),
         meta: {
           title: {
             zh_CN: '二级详情页',
@@ -200,7 +200,7 @@ export default [
   {
     path: '/frame',
     name: 'Frame',
-    component: 'Layout',
+    component: Layout,
     redirect: '/frame/doc',
     meta: {
       icon: 'internet',
@@ -213,7 +213,7 @@ export default [
       {
         path: 'doc',
         name: 'Doc',
-        component: 'IFrame',
+        component: IFrame,
         meta: {
           frameSrc: 'https://tdesign.tencent.com/starter/docs/vue-next/get-started',
           title: {
@@ -225,7 +225,7 @@ export default [
       {
         path: 'TDesign',
         name: 'TDesign',
-        component: 'IFrame',
+        component: IFrame,
         meta: {
           frameSrc: 'https://tdesign.tencent.com/vue-next/getting-started',
           title: {
@@ -237,7 +237,7 @@ export default [
       {
         path: 'TDesign2',
         name: 'TDesign2',
-        component: 'IFrame',
+        component: IFrame,
         meta: {
           frameSrc: 'https://tdesign.tencent.com/vue-next/getting-started',
           frameBlank: true,

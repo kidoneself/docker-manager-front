@@ -2,7 +2,7 @@
   <t-row :gutter="16" class="row-container">
     <t-col :xs="12" :xl="9">
       <t-card
-        :title="t('pages.dashboardBase.topPanel.analysis.title')"
+        title="数据分析"
         :subtitle="currentMonth"
         class="dashboard-chart-card"
         :bordered="false"
@@ -27,7 +27,7 @@
     </t-col>
     <t-col :xs="12" :xl="3">
       <t-card
-        :title="t('pages.dashboardBase.topPanel.analysis.channels')"
+        title="渠道分析"
         :subtitle="currentMonth"
         class="dashboard-chart-card"
         :bordered="false"

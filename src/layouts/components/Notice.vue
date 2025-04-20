@@ -3,14 +3,14 @@
     <template #content>
       <div class="header-msg">
         <div class="header-msg-top">
-          <p>{{ t('layout.notice.title') }}</p>
+          <p>消息通知</p>
           <t-button
             v-if="unreadMsg.length > 0"
             class="clear-btn"
             variant="text"
             theme="primary"
             @click="setRead('all')"
-            >{{ t('layout.notice.clear') }}</t-button
+            >清空</t-button
           >
         </div>
         <t-list v-if="unreadMsg.length > 0" class="narrow-scrollbar" :split="false">
@@ -22,7 +22,7 @@
             <p class="msg-time">{{ item.date }}</p>
             <template #action>
               <t-button size="small" variant="outline" @click="setRead('radio', item)">
-                {{ t('layout.notice.setRead') }}
+                标记已读
               </t-button>
             </template>
           </t-list-item>
@@ -30,12 +30,12 @@
 
         <div v-else class="empty-list">
           <img src="https://tdesign.gtimg.com/pro-template/personal/nothing.png" alt="空" />
-          <p>{{ t('layout.notice.empty') }}</p>
+          <p>暂无消息</p>
         </div>
         <div v-if="unreadMsg.length > 0" class="header-msg-bottom">
-          <t-button class="header-msg-bottom-link" variant="text" theme="default" block @click="goDetail">{{
-            t('layout.notice.viewAll')
-          }}</t-button>
+          <t-button class="header-msg-bottom-link" variant="text" theme="default" block @click="goDetail">
+            查看全部
+          </t-button>
         </div>
       </div>
     </template>
@@ -51,7 +51,6 @@
 import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router';
 
-import { t } from '@/locales';
 import { useNotificationStore } from '@/store';
 import type { NotificationItem } from '@/types/interface';
 

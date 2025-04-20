@@ -1,29 +1,33 @@
 <template>
   <result
-    :title="t('pages.result.browserIncompatible.title')"
-    type="ie"
-    :tip="t('pages.result.browserIncompatible.subtitle')"
+    title="浏览器版本过低"
+    tip="您的浏览器版本过低，可能存在安全风险，建议升级浏览器"
+    type="browser-incompatible"
   >
-    <div class="result-slot-container">
-      <t-button class="result-button" @click="() => $router.push('/')">{{
-        t('pages.result.browserIncompatible.back')
-      }}</t-button>
-      <div class="recommend-container">
-        <div>{{ t('pages.result.browserIncompatible.recommend') }}</div>
-        <div class="recommend-browser">
-          <div>
-            <thumbnail class="browser-icon" url="https://tdesign.gtimg.com/starter/result-page/chorme.png" />
-            <div>Chrome</div>
-          </div>
-          <div>
-            <thumbnail class="browser-icon" url="https://tdesign.gtimg.com/starter/result-page/qq-browser.png" />
-            <div>QQ Browser</div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <t-space direction="vertical">
+      <t-button theme="default" @click="() => $router.push('/')">返回首页</t-button>
+      <div>推荐使用以下浏览器访问</div>
+      <t-space>
+        <t-tooltip content="Chrome">
+          <t-button shape="square" variant="text">
+            <t-icon name="logo-chrome" />
+          </t-button>
+        </t-tooltip>
+        <t-tooltip content="Firefox">
+          <t-button shape="square" variant="text">
+            <t-icon name="logo-firefox" />
+          </t-button>
+        </t-tooltip>
+        <t-tooltip content="Edge">
+          <t-button shape="square" variant="text">
+            <t-icon name="logo-edge" />
+          </t-button>
+        </t-tooltip>
+      </t-space>
+    </t-space>
   </result>
 </template>
+
 <script lang="ts">
 export default {
   name: 'ResultBrowserIncompatible',
@@ -31,8 +35,6 @@ export default {
 </script>
 <script setup lang="ts">
 import Result from '@/components/result/index.vue';
-import Thumbnail from '@/components/thumbnail/index.vue';
-import { t } from '@/locales';
 </script>
 
 <style lang="less" scoped>

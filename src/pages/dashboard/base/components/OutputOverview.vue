@@ -1,62 +1,37 @@
 <template>
-  <t-card :bordered="false">
-    <t-row>
-      <t-col :xs="12" :xl="9">
-        <t-card
-          :bordered="false"
-          :title="t('pages.dashboardBase.outputOverview.title')"
-          :subtitle="t('pages.dashboardBase.outputOverview.subtitle')"
-          :class="{ 'dashboard-overview-card': true, 'overview-panel': true }"
-        >
-          <template #actions>
-            <t-date-range-picker
-              class="card-date-picker-container"
-              theme="primary"
-              mode="date"
-              :default-value="LAST_7_DAYS"
-              @change="(value) => onStokeDataChange(value as string[])"
-            />
+  <t-card title="出入库概览" subtitle="出入库统计" class="dashboard-chart-card" :bordered="false">
+    <template #actions>
+      <t-button>导出</t-button>
+    </template>
+    <t-row :gutter="[16, 16]">
+      <t-col :xs="12" :xl="6">
+        <t-card :bordered="false" class="dashboard-chart-card">
+          <template #title>
+            <div class="dashboard-chart-title">
+              <span>本月入库</span>
+              <span class="dashboard-chart-subtitle">较上月</span>
+            </div>
           </template>
-          <div id="stokeContainer" style="width: 100%; height: 351px" class="dashboard-chart-container"></div>
+          <div
+            id="stokeContainer"
+            class="dashboard-chart-container"
+            :style="{ width: '100%', height: `${resizeTime * 326}px` }"
+          />
         </t-card>
       </t-col>
-      <t-col :xs="12" :xl="3">
-        <t-card :bordered="false" :class="{ 'dashboard-overview-card': true, 'export-panel': true }">
-          <template #actions>
-            <t-button>{{ t('pages.dashboardBase.outputOverview.export') }}</t-button>
+      <t-col :xs="12" :xl="6">
+        <t-card :bordered="false" class="dashboard-chart-card">
+          <template #title>
+            <div class="dashboard-chart-title">
+              <span>本月出库</span>
+              <span class="dashboard-chart-subtitle">较上月</span>
+            </div>
           </template>
-          <t-row>
-            <t-col :xs="6" :xl="12">
-              <t-card
-                :bordered="false"
-                :subtitle="t('pages.dashboardBase.outputOverview.month.input')"
-                class="inner-card"
-              >
-                <div class="inner-card__content">
-                  <div class="inner-card__content-title">1726</div>
-                  <div class="inner-card__content-footer">
-                    {{ t('pages.dashboardBase.outputOverview.since') }}
-                    <trend class="trend-tag" type="down" :is-reverse-color="false" describe="20.3%" />
-                  </div>
-                </div>
-              </t-card>
-            </t-col>
-            <t-col :xs="6" :xl="12">
-              <t-card
-                :bordered="false"
-                :subtitle="t('pages.dashboardBase.outputOverview.month.output')"
-                class="inner-card"
-              >
-                <div class="inner-card__content">
-                  <div class="inner-card__content-title">226</div>
-                  <div class="inner-card__content-footer">
-                    {{ t('pages.dashboardBase.outputOverview.since') }}
-                    <trend class="trend-tag" type="down" :is-reverse-color="false" describe="20.3%" />
-                  </div>
-                </div>
-              </t-card>
-            </t-col>
-          </t-row>
+          <div
+            id="outContainer"
+            class="dashboard-chart-container"
+            :style="{ width: '100%', height: `${resizeTime * 326}px` }"
+          />
         </t-card>
       </t-col>
     </t-row>
@@ -72,28 +47,25 @@ export default {
 <script setup lang="ts">
 import { useWindowSize } from '@vueuse/core';
 import { LineChart } from 'echarts/charts';
-import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
+import { GridComponent, TooltipComponent } from 'echarts/components';
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 
-// 导入样式
-import Trend from '@/components/trend/index.vue';
-import { t } from '@/locales';
 import { useSettingStore } from '@/store';
 import { changeChartsTheme } from '@/utils/color';
 import { LAST_7_DAYS } from '@/utils/date';
 
 import { constructInitDataset } from '../index';
 
-echarts.use([TooltipComponent, LegendComponent, GridComponent, LineChart, CanvasRenderer]);
+echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
 const store = useSettingStore();
 const resizeTime = ref(1);
 
 const chartColors = computed(() => store.chartColors);
 
-// stokeCharts
+// stokeChart
 let stokeContainer: HTMLElement;
 let stokeChart: echarts.ECharts;
 const renderStokeChart = () => {
@@ -104,8 +76,20 @@ const renderStokeChart = () => {
   stokeChart.setOption(constructInitDataset({ dateTime: LAST_7_DAYS, ...chartColors.value }));
 };
 
+// outChart
+let outContainer: HTMLElement;
+let outChart: echarts.ECharts;
+const renderOutChart = () => {
+  if (!outContainer) {
+    outContainer = document.getElementById('outContainer');
+  }
+  outChart = echarts.init(outContainer);
+  outChart.setOption(constructInitDataset({ dateTime: LAST_7_DAYS, ...chartColors.value }));
+};
+
 const renderCharts = () => {
   renderStokeChart();
+  renderOutChart();
 };
 
 // chartSize update
@@ -120,7 +104,11 @@ const updateContainer = () => {
 
   stokeChart.resize({
     width: stokeContainer.clientWidth,
-    height: stokeContainer.clientHeight,
+    height: resizeTime.value * 326,
+  });
+  outChart.resize({
+    width: outContainer.clientWidth,
+    height: resizeTime.value * 326,
   });
 };
 
@@ -139,14 +127,14 @@ watch([width, height], () => {
 watch(
   () => store.brandTheme,
   () => {
-    changeChartsTheme([stokeChart]);
+    changeChartsTheme([stokeChart, outChart]);
   },
 );
 
 watch(
   () => store.mode,
   () => {
-    [stokeChart].forEach((item) => {
+    [stokeChart, outChart].forEach((item) => {
       item.dispose();
     });
 
@@ -154,69 +142,39 @@ watch(
   },
 );
 
-const onStokeDataChange = (checkedValues: string[]) => {
+const onCurrencyChange = (checkedValues: string[]) => {
   stokeChart.setOption(constructInitDataset({ dateTime: checkedValues, ...chartColors.value }));
+  outChart.setOption(constructInitDataset({ dateTime: checkedValues, ...chartColors.value }));
 };
 </script>
 
 <style lang="less" scoped>
-:deep(.t-card__body) {
+.dashboard-chart-card {
   padding: var(--td-comp-paddingTB-xxl) var(--td-comp-paddingLR-xxl);
-}
 
-.dashboard-overview-card {
   :deep(.t-card__header) {
     padding: 0;
+  }
+
+  :deep(.t-card__body) {
+    padding: 0;
+    margin-top: var(--td-comp-margin-xxl);
   }
 
   :deep(.t-card__title) {
     font: var(--td-font-title-large);
     font-weight: 400;
   }
-
-  :deep(.t-card__body) {
-    margin-top: var(--td-comp-margin-xxl);
-    padding: 0;
-  }
-
-  &.overview-panel {
-    border-right: none;
-  }
-
-  &.export-panel {
-    border-left: none;
-    margin-left: calc(var(--td-comp-margin-xxxl) + var(--td-comp-margin-xxxl));
-  }
 }
 
-.inner-card {
-  margin-top: var(--td-comp-margin-s);
-  margin-bottom: var(--td-comp-margin-xxxxl);
+.dashboard-chart-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 
-  :deep(.t-card__header) {
-    padding-bottom: 0;
-  }
-
-  :deep(.t-card__body) {
-    margin-top: var(--td-comp-margin-s);
-  }
-
-  &__content {
-    &-title {
-      font-size: var(--td-font-size-headline-medium);
-      line-height: var(--td-line-height-headline-medium);
-    }
-
-    &-footer {
-      display: flex;
-      align-items: center;
-      color: var(--td-text-color-placeholder);
-      margin-top: var(--td-comp-margin-xxl);
-
-      .trend-tag {
-        margin-left: var(--td-comp-margin-s);
-      }
-    }
+  &-subtitle {
+    color: var(--td-text-color-secondary);
+    font-size: var(--td-font-size-body-small);
   }
 }
 </style>

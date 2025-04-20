@@ -164,16 +164,16 @@ export function constructInitDataset({
       left: 'center',
       bottom: '0',
       orient: 'horizontal',
-      data: [t('pages.dashboardBase.chart.thisMonth'), t('pages.dashboardBase.chart.lastMonth')],
+      data: ['本月', '上月'],
     },
     series: [
       {
-        name: t('pages.dashboardBase.chart.thisMonth'),
+        name: '本月',
         data: outArray,
         type: 'bar',
       },
       {
-        name: t('pages.dashboardBase.chart.lastMonth'),
+        name: '上月',
         data: inArray,
         type: 'bar',
       },
@@ -233,7 +233,7 @@ export function getLineChartDataSet({
       left: 'center',
       bottom: '0',
       orient: 'horizontal', // legend 横向布局。
-      data: [t('pages.dashboardBase.chart.thisMonth'), t('pages.dashboardBase.chart.lastMonth')],
+      data: ['本月', '上月'],
       textStyle: {
         fontSize: 12,
         color: placeholderColor,
@@ -265,7 +265,7 @@ export function getLineChartDataSet({
     },
     series: [
       {
-        name: t('pages.dashboardBase.chart.thisMonth'),
+        name: '本月',
         data: outArray,
         type: 'line',
         smooth: false,
@@ -281,7 +281,7 @@ export function getLineChartDataSet({
         },
       },
       {
-        name: t('pages.dashboardBase.chart.lastMonth'),
+        name: '上月',
         data: inArray,
         type: 'line',
         smooth: false,
@@ -336,7 +336,7 @@ export function getPieChartDataSet({
     },
     series: [
       {
-        name: '销售渠道',
+        name: '渠道1',
         type: 'pie',
         radius: ['48%', '60%'],
         avoidLabelOverlap: true,
@@ -389,9 +389,9 @@ export function getPieChartDataSet({
         data: [
           {
             value: 1048,
-            name: t('pages.dashboardBase.topPanel.analysis.channel1'),
+            name: '渠道1',
           },
-          { value: radius * 7, name: t('pages.dashboardBase.topPanel.analysis.channel2') },
+          { value: radius * 7, name: '渠道2' },
         ],
       },
     ],

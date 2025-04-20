@@ -1,6 +1,6 @@
 <template>
   <t-config-provider :global-config="getComponentsLocale">
-    <router-view :key="locale" :class="[mode]" />
+    <router-view :class="[mode]" />
   </t-config-provider>
 </template>
 <script setup lang="ts">
@@ -15,7 +15,7 @@ const mode = computed(() => {
   return store.displayMode;
 });
 
-const { getComponentsLocale, locale } = useLocale();
+const { getComponentsLocale } = useLocale();
 </script>
 <style lang="less" scoped>
 #nprogress .bar {

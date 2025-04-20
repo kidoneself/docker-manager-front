@@ -1,13 +1,10 @@
 <template>
-  <div>
-    <!-- 顶部 card  -->
-    <top-panel class="row-container" />
-    <!-- 中部图表  -->
-    <middle-chart class="row-container" />
-    <!-- 列表排名 -->
-    <rank-list class="row-container" />
-    <!-- 出入库概览 -->
-    <output-overview class="row-container" />
+  <div class="dashboard-container">
+    <t-card title="仪表盘" :bordered="false">
+      <div class="dashboard-content">
+        <!-- 空白页面 -->
+      </div>
+    </t-card>
   </div>
 </template>
 
@@ -18,14 +15,18 @@ export default {
 </script>
 
 <script setup lang="ts">
-import MiddleChart from './components/MiddleChart.vue';
-import OutputOverview from './components/OutputOverview.vue';
-import RankList from './components/RankList.vue';
-import TopPanel from './components/TopPanel.vue';
+import { ref } from 'vue';
+
+const loading = ref(false);
 </script>
 
-<style scoped>
-.row-container:not(:last-child) {
-  margin-bottom: 16px;
+<style lang="less" scoped>
+.dashboard-container {
+  padding: 16px;
+  height: 100%;
+  
+  .dashboard-content {
+    height: 100%;
+  }
 }
 </style>

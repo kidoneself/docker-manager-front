@@ -10,10 +10,7 @@
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
 
-import { useLocale } from '@/locales/useLocale';
 import { RouteMeta } from '@/types/interface';
-
-const { locale } = useLocale();
 
 const crumbs = computed(() => {
   const route = useRoute();
@@ -31,8 +28,6 @@ const crumbs = computed(() => {
     if (meta?.title) {
       if (typeof meta.title === 'string') {
         title = meta.title;
-      } else {
-        title = meta.title[locale.value];
       }
     }
     breadcrumbArray.push({

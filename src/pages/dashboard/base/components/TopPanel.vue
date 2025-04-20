@@ -1,48 +1,135 @@
 <template>
-  <t-row :gutter="[16, 16]">
-    <t-col v-for="(item, index) in PANE_LIST" :key="item.title" :xs="6" :xl="3">
-      <t-card
-        :title="t(item.title)"
-        :bordered="false"
-        :class="{ 'dashboard-item': true, 'dashboard-item--main-color': index == 0 }"
-      >
-        <div class="dashboard-item-top">
-          <span :style="{ fontSize: `${resizeTime * 28}px` }">{{ item.number }}</span>
-        </div>
-        <div class="dashboard-item-left">
-          <div
-            v-if="index === 0"
-            id="moneyContainer"
-            class="dashboard-chart-container"
-            :style="{ width: `${resizeTime * 120}px`, height: '100px', marginTop: '-24px' }"
-          ></div>
-          <div
-            v-else-if="index === 1"
-            id="refundContainer"
-            class="dashboard-chart-container"
-            :style="{ width: `${resizeTime * 120}px`, height: '56px', marginTop: '-24px' }"
-          ></div>
-          <span v-else-if="index === 2" :style="{ marginTop: `-24px` }">
-            <usergroup-icon />
-          </span>
-          <span v-else :style="{ marginTop: '-24px' }">
-            <file-icon />
-          </span>
-        </div>
-        <template #footer>
-          <div class="dashboard-item-bottom">
-            <div class="dashboard-item-block">
-              {{ t('pages.dashboardBase.topPanel.cardTips') }}
-              <trend
-                class="dashboard-item-trend"
-                :type="item.upTrend ? 'up' : 'down'"
-                :is-reverse-color="index === 0"
-                :describe="item.upTrend || item.downTrend"
-              />
-            </div>
-            <t-icon name="chevron-right" />
+  <t-row :gutter="[16, 16]" class="row-container">
+    <t-col :xs="12" :xl="6">
+      <t-card :bordered="false" class="dashboard-top-panel-first">
+        <template #title>
+          <div class="dashboard-top-panel-title">
+            <span>总销售额</span>
+            <t-tooltip content="指标说明">
+              <t-icon name="help-circle" />
+            </t-tooltip>
           </div>
         </template>
+        <template #actions>
+          <t-date-range-picker
+            class="card-date-picker-container"
+            :default-value="LAST_7_DAYS"
+            theme="primary"
+            mode="date"
+            @change="onMoneyChange"
+          />
+        </template>
+        <div class="dashboard-top-panel-content">
+          <div class="dashboard-top-panel-content-left">
+            <div class="dashboard-top-panel-content-left-value">¥ 126,560</div>
+            <div class="dashboard-top-panel-content-left-label">
+              <span>周同比</span>
+              <trend :type="'up'" :describe="'12%'" />
+            </div>
+          </div>
+          <div class="dashboard-top-panel-content-right">
+            <div id="moneyContainer" class="dashboard-top-panel-chart" />
+          </div>
+        </div>
+      </t-card>
+    </t-col>
+    <t-col :xs="12" :xl="6">
+      <t-card :bordered="false" class="dashboard-top-panel-second">
+        <template #title>
+          <div class="dashboard-top-panel-title">
+            <span>访问量</span>
+            <t-tooltip content="指标说明">
+              <t-icon name="help-circle" />
+            </t-tooltip>
+          </div>
+        </template>
+        <template #actions>
+          <t-date-range-picker
+            class="card-date-picker-container"
+            :default-value="LAST_7_DAYS"
+            theme="primary"
+            mode="date"
+            @change="onRefundChange"
+          />
+        </template>
+        <div class="dashboard-top-panel-content">
+          <div class="dashboard-top-panel-content-left">
+            <div class="dashboard-top-panel-content-left-value">8,846</div>
+            <div class="dashboard-top-panel-content-left-label">
+              <span>日访问量</span>
+              <trend :type="'down'" :describe="'11%'" />
+            </div>
+          </div>
+          <div class="dashboard-top-panel-content-right">
+            <div id="refundContainer" class="dashboard-top-panel-chart" />
+          </div>
+        </div>
+      </t-card>
+    </t-col>
+    <t-col :xs="12" :xl="6">
+      <t-card :bordered="false" class="dashboard-top-panel-third">
+        <template #title>
+          <div class="dashboard-top-panel-title">
+            <span>支付笔数</span>
+            <t-tooltip content="指标说明">
+              <t-icon name="help-circle" />
+            </t-tooltip>
+          </div>
+        </template>
+        <template #actions>
+          <t-date-range-picker
+            class="card-date-picker-container"
+            :default-value="LAST_7_DAYS"
+            theme="primary"
+            mode="date"
+            @change="onOrderChange"
+          />
+        </template>
+        <div class="dashboard-top-panel-content">
+          <div class="dashboard-top-panel-content-left">
+            <div class="dashboard-top-panel-content-left-value">6,560</div>
+            <div class="dashboard-top-panel-content-left-label">
+              <span>转化率</span>
+              <trend :type="'up'" :describe="'12%'" />
+            </div>
+          </div>
+          <div class="dashboard-top-panel-content-right">
+            <div id="orderContainer" class="dashboard-top-panel-chart" />
+          </div>
+        </div>
+      </t-card>
+    </t-col>
+    <t-col :xs="12" :xl="6">
+      <t-card :bordered="false" class="dashboard-top-panel-fourth">
+        <template #title>
+          <div class="dashboard-top-panel-title">
+            <span>运营活动效果</span>
+            <t-tooltip content="指标说明">
+              <t-icon name="help-circle" />
+            </t-tooltip>
+          </div>
+        </template>
+        <template #actions>
+          <t-date-range-picker
+            class="card-date-picker-container"
+            :default-value="LAST_7_DAYS"
+            theme="primary"
+            mode="date"
+            @change="onActivityChange"
+          />
+        </template>
+        <div class="dashboard-top-panel-content">
+          <div class="dashboard-top-panel-content-left">
+            <div class="dashboard-top-panel-content-left-value">78%</div>
+            <div class="dashboard-top-panel-content-left-label">
+              <span>周同比</span>
+              <trend :type="'up'" :describe="'12%'" />
+            </div>
+          </div>
+          <div class="dashboard-top-panel-content-right">
+            <div id="activityContainer" class="dashboard-top-panel-chart" />
+          </div>
+        </div>
       </t-card>
     </t-col>
   </t-row>
@@ -55,238 +142,180 @@ export default {
 </script>
 
 <script setup lang="ts">
-import { useWindowSize } from '@vueuse/core';
-import { BarChart, LineChart } from 'echarts/charts';
+import { LineChart } from 'echarts/charts';
+import { GridComponent, TooltipComponent } from 'echarts/components';
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
-import { FileIcon, UsergroupIcon } from 'tdesign-icons-vue-next';
-import { nextTick, onMounted, ref, watch } from 'vue';
+import type { DateRangeValue } from 'tdesign-vue-next';
+import { computed, nextTick, onMounted, onUnmounted, watch } from 'vue';
 
-// 导入样式
 import Trend from '@/components/trend/index.vue';
-import { t } from '@/locales';
 import { useSettingStore } from '@/store';
 import { changeChartsTheme } from '@/utils/color';
+import { LAST_7_DAYS } from '@/utils/date';
 
 import { constructInitDashboardDataset } from '../index';
 
-echarts.use([LineChart, BarChart, CanvasRenderer]);
+echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
-const store = useSettingStore();
-const resizeTime = ref(1);
-
-const PANE_LIST = [
-  {
-    title: 'pages.dashboardBase.topPanel.card1',
-    number: '¥ 28,425.00',
-    upTrend: '20.5%',
-    leftType: 'echarts-line',
-  },
-  {
-    title: 'pages.dashboardBase.topPanel.card2',
-    number: '¥ 768.00',
-    downTrend: '20.5%',
-    leftType: 'echarts-bar',
-  },
-  {
-    title: 'pages.dashboardBase.topPanel.card3',
-    number: '1126',
-    upTrend: '20.5%',
-    leftType: 'icon-usergroup',
-  },
-  {
-    title: 'pages.dashboardBase.topPanel.card4',
-    number: 527,
-    downTrend: '20.5%',
-    leftType: 'icon-file-paste',
-  },
-];
-
-// moneyCharts
 let moneyContainer: HTMLElement;
+let refundContainer: HTMLElement;
+let orderContainer: HTMLElement;
+let activityContainer: HTMLElement;
 let moneyChart: echarts.ECharts;
-const renderMoneyChart = () => {
-  if (!moneyContainer) {
-    moneyContainer = document.getElementById('moneyContainer');
-  }
+let refundChart: echarts.ECharts;
+let orderChart: echarts.ECharts;
+let activityChart: echarts.ECharts;
+const store = useSettingStore();
+const chartColors = computed(() => store.chartColors);
+
+const onMoneyChange = (value: DateRangeValue) => {
+  moneyChart.setOption(
+    constructInitDashboardDataset('line'),
+  );
+};
+
+const onRefundChange = (value: DateRangeValue) => {
+  refundChart.setOption(
+    constructInitDashboardDataset('bar'),
+  );
+};
+
+const onOrderChange = (value: DateRangeValue) => {
+  orderChart.setOption(
+    constructInitDashboardDataset('line'),
+  );
+};
+
+const onActivityChange = (value: DateRangeValue) => {
+  activityChart.setOption(
+    constructInitDashboardDataset('line'),
+  );
+};
+
+const initChart = () => {
+  moneyContainer = document.getElementById('moneyContainer');
+  refundContainer = document.getElementById('refundContainer');
+  orderContainer = document.getElementById('orderContainer');
+  activityContainer = document.getElementById('activityContainer');
+
   moneyChart = echarts.init(moneyContainer);
   moneyChart.setOption(constructInitDashboardDataset('line'));
-};
 
-// refundCharts
-let refundContainer: HTMLElement;
-let refundChart: echarts.ECharts;
-const renderRefundChart = () => {
-  if (!refundContainer) {
-    refundContainer = document.getElementById('refundContainer');
-  }
   refundChart = echarts.init(refundContainer);
   refundChart.setOption(constructInitDashboardDataset('bar'));
+
+  orderChart = echarts.init(orderContainer);
+  orderChart.setOption(constructInitDashboardDataset('line'));
+
+  activityChart = echarts.init(activityContainer);
+  activityChart.setOption(constructInitDashboardDataset('line'));
 };
 
-const renderCharts = () => {
-  renderMoneyChart();
-  renderRefundChart();
-};
-
-// chartSize update
 const updateContainer = () => {
-  if (document.documentElement.clientWidth >= 1400 && document.documentElement.clientWidth < 1920) {
-    resizeTime.value = Number((document.documentElement.clientWidth / 2080).toFixed(2));
-  } else if (document.documentElement.clientWidth < 1080) {
-    resizeTime.value = Number((document.documentElement.clientWidth / 1080).toFixed(2));
-  } else {
-    resizeTime.value = 1;
-  }
-  moneyChart.resize({
-    width: resizeTime.value * 120,
-    // height: resizeTime.value * 100,
+  moneyChart?.resize({
+    width: moneyContainer.clientWidth,
+    height: moneyContainer.clientHeight,
   });
-  refundChart.resize({
-    width: resizeTime.value * 120,
-    // height: resizeTime.value * 56,
+  refundChart?.resize({
+    width: refundContainer.clientWidth,
+    height: refundContainer.clientHeight,
+  });
+  orderChart?.resize({
+    width: orderContainer.clientWidth,
+    height: orderContainer.clientHeight,
+  });
+  activityChart?.resize({
+    width: activityContainer.clientWidth,
+    height: activityContainer.clientHeight,
   });
 };
 
 onMounted(() => {
-  renderCharts();
   nextTick(() => {
-    updateContainer();
+    initChart();
   });
+  window.addEventListener('resize', updateContainer, false);
 });
 
-const { width, height } = useWindowSize();
-watch([width, height], () => {
-  updateContainer();
+onUnmounted(() => {
+  window.removeEventListener('resize', updateContainer);
 });
 
 watch(
   () => store.brandTheme,
   () => {
-    changeChartsTheme([refundChart]);
-  },
-);
-
-watch(
-  () => store.mode,
-  () => {
-    [moneyChart, refundChart].forEach((item) => {
-      item.dispose();
-    });
-
-    renderCharts();
+    changeChartsTheme([moneyChart, refundChart, orderChart, activityChart]);
   },
 );
 </script>
 
 <style lang="less" scoped>
-.dashboard-item {
-  padding: var(--td-comp-paddingTB-xl) var(--td-comp-paddingLR-xxl);
+.row-container {
+  padding: var(--td-comp-paddingTB-xxl) var(--td-comp-paddingLR-xxl);
+}
 
-  :deep(.t-card__header) {
-    padding: 0;
+.dashboard-top-panel {
+  &-first {
+    background: linear-gradient(90deg, var(--td-brand-color-1) 0%, var(--td-brand-color) 100%);
   }
 
-  :deep(.t-card__footer) {
-    padding: 0;
+  &-second {
+    background: linear-gradient(90deg, var(--td-success-color-1) 0%, var(--td-success-color) 100%);
   }
 
-  :deep(.t-card__title) {
-    font: var(--td-font-body-medium);
-    color: var(--td-text-color-secondary);
+  &-third {
+    background: linear-gradient(90deg, var(--td-warning-color-1) 0%, var(--td-warning-color) 100%);
   }
 
-  :deep(.t-card__body) {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    flex: 1;
-    position: relative;
-    padding: 0;
-    margin-top: var(--td-comp-margin-s);
-    margin-bottom: var(--td-comp-margin-xxl);
+  &-fourth {
+    background: linear-gradient(90deg, var(--td-error-color-1) 0%, var(--td-error-color) 100%);
   }
 
-  &:hover {
-    cursor: pointer;
-  }
-
-  &-top {
-    display: flex;
-    flex-direction: row;
-    align-items: flex-start;
-
-    > span {
-      display: inline-block;
-      color: var(--td-text-color-primary);
-      font-size: var(--td-font-size-headline-medium);
-      line-height: var(--td-line-height-headline-medium);
-    }
-  }
-
-  &-bottom {
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-
-    > .t-icon {
-      cursor: pointer;
-      font-size: var(--td-comp-size-xxxs);
-    }
-  }
-
-  &-block {
+  &-title {
     display: flex;
     align-items: center;
-    justify-content: center;
-    color: var(--td-text-color-placeholder);
+    justify-content: space-between;
+    font: var(--td-font-title-medium);
+    font-weight: 500;
+    color: var(--td-text-color-primary);
   }
 
-  &-trend {
-    margin-left: var(--td-comp-margin-s);
-  }
+  &-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--td-comp-margin-xxl);
 
-  &-left {
-    position: absolute;
-    top: 0;
-    right: 0;
+    &-left {
+      &-value {
+        font: var(--td-font-title-large);
+        font-weight: 500;
+        color: var(--td-text-color-primary);
+      }
 
-    > span {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: var(--td-comp-size-xxxl);
-      height: var(--td-comp-size-xxxl);
-      background: var(--td-brand-color-light);
-      border-radius: 50%;
-
-      .t-icon {
-        font-size: 24px;
-        color: var(--td-brand-color);
+      &-label {
+        display: flex;
+        align-items: center;
+        margin-top: var(--td-comp-margin-s);
+        color: var(--td-text-color-secondary);
+        font-size: var(--td-font-size-body-small);
       }
     }
-  }
 
-  // 针对第一个卡片需要反色处理
-  &--main-color {
-    background: var(--td-brand-color);
-    color: var(--td-text-color-primary);
-
-    :deep(.t-card__title),
-    .dashboard-item-top span,
-    .dashboard-item-bottom {
-      color: var(--td-text-color-anti);
-    }
-
-    .dashboard-item-block {
-      color: var(--td-text-color-anti);
-      opacity: 0.6;
-    }
-
-    .dashboard-item-bottom {
-      color: var(--td-text-color-anti);
+    &-right {
+      flex: 1;
+      margin-left: var(--td-comp-margin-xxl);
     }
   }
+
+  &-chart {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.card-date-picker-container {
+  margin-left: var(--td-comp-margin-l);
 }
 </style>

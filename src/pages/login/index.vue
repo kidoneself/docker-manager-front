@@ -4,12 +4,12 @@
 
     <div class="login-container">
       <div class="title-container">
-        <h1 class="title margin-no">{{ t('pages.login.loginTitle') }}</h1>
+        <h1 class="title margin-no">欢迎使用</h1>
         <h1 class="title">TDesign Starter</h1>
         <div class="sub-title">
-          <p class="tip">{{ type == 'register' ? t('pages.login.existAccount') : t('pages.login.noAccount') }}</p>
+          <p class="tip">{{ type == 'register' ? '已有账号？' : '没有账号？' }}</p>
           <p class="tip" @click="switchType(type == 'register' ? 'login' : 'register')">
-            {{ type == 'register' ? t('pages.login.signIn') : t('pages.login.createAccount') }}
+            {{ type == 'register' ? '立即登录' : '立即注册' }}
           </p>
         </div>
       </div>
@@ -31,7 +31,6 @@ export default {
 import { ref } from 'vue';
 
 import TdesignSetting from '@/layouts/setting.vue';
-import { t } from '@/locales';
 
 import LoginHeader from './components/Header.vue';
 import Login from './components/Login.vue';

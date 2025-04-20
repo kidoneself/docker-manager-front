@@ -1,13 +1,13 @@
 <template>
   <div class="result-success">
     <t-icon class="result-success-icon" name="check-circle" />
-    <div class="result-success-title">{{ t('pages.result.success.title') }}</div>
-    <div class="result-success-describe">{{ t('pages.result.success.subtitle') }}</div>
+    <div class="result-success-title">操作成功</div>
+    <div class="result-success-describe">您的操作已经成功完成</div>
     <div>
       <t-button theme="default" @click="() => $router.push('/dashboard/base')">
-        {{ t('pages.result.success.progress') }}
+        查看进度
       </t-button>
-      <t-button @click="() => $router.push('/dashboard/base')"> {{ t('pages.result.success.back') }} </t-button>
+      <t-button @click="() => $router.push('/dashboard/base')">返回首页</t-button>
     </div>
   </div>
 </template>
@@ -18,7 +18,6 @@ export default {
 </script>
 
 <script setup lang="ts">
-import { t } from '@/locales';
 </script>
 
 <style lang="less" scoped>

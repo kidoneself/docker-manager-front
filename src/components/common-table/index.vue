@@ -276,7 +276,7 @@ const onReset = (val: unknown) => {
 };
 
 const handleClickDetail = () => {
-  router.push('/detail/base');
+  router.push('/dashboard/base');
 };
 const onSubmit = (val: unknown) => {
   console.log(val);

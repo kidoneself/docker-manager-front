@@ -3,7 +3,9 @@ import { defineComponent } from 'vue';
 import { RouteMeta } from '@/types/interface';
 
 export interface MenuListResult {
+  code: number;
   list: Array<RouteItem>;
+  message: string;
 }
 
 export type Component<T = any> =

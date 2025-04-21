@@ -168,7 +168,7 @@ function createAxios(opt?: Partial<CreateAxiosOptions>) {
           // 接口地址
           apiUrl: host,
           // 是否自动添加接口前缀
-          isJoinPrefix: true,
+          isJoinPrefix: false,
           // 接口前缀
           // 例如: https://www.baidu.com/api
           // urlPrefix: '/api'
@@ -176,7 +176,7 @@ function createAxios(opt?: Partial<CreateAxiosOptions>) {
           // 是否返回原生响应头 比如：需要获取响应头时使用该属性
           isReturnNativeResponse: false,
           // 需要对返回数据进行处理
-          isTransformResponse: true,
+          isTransformResponse: false,
           // post请求的时候添加参数到url
           joinParamsToUrl: false,
           // 格式化提交参数时间
@@ -190,10 +190,10 @@ function createAxios(opt?: Partial<CreateAxiosOptions>) {
           // 是否携带token
           withToken: true,
           // 重试
-          retry: {
-            count: 3,
-            delay: 1000,
-          },
+          // retry: {
+          //   count: 3,
+          //   delay: 1000,
+          // },
         },
       },
       opt || {},

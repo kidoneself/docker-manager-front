@@ -4,7 +4,7 @@ import { RouteMeta } from '@/types/interface';
 
 export interface MenuListResult {
   code: number;
-  list: Array<RouteItem>;
+  data: Array<RouteItem>;
   message: string;
 }
 

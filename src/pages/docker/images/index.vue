@@ -404,6 +404,7 @@
 import { Client } from '@stomp/stompjs';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { onMounted, onUnmounted, ref } from 'vue';
+import type { InputValue } from 'tdesign-vue-next';
 
 import {
   addRegistry,
@@ -453,7 +454,7 @@ const columns = [
 ];
 
 // ==================== 4. 工具函数 ====================
-const formatSize = (size) => {
+const formatSize = (size: number): string => {
   if (!size) return '未知';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let index = 0;
@@ -467,12 +468,12 @@ const formatSize = (size) => {
   return `${formattedSize.toFixed(2)} ${units[index]}`;
 };
 
-const formatDate = (date) => {
+const formatDate = (date: string): string => {
   if (!date) return '未知';
   if (typeof date === 'string') {
-    date = new Date(date);
+    date = new Date(date).toLocaleString();
   }
-  return new Date(date).toLocaleString();
+  return date;
 };
 
 const formatLabels = (labels: Record<string, string> | null) => {
@@ -579,12 +580,6 @@ const pullImageFormRules = {
   image: [{ required: true, message: '请输入镜像地址' }],
   tag: [{ required: true, message: '请输入版本' }],
 };
-
-// interface ImagePullParams {
-//   image: string;
-//   tag: string;
-//   useProxy: boolean;
-// }
 
 interface PullTask {
   taskId: string;
@@ -1003,15 +998,16 @@ const handleRun = (row: any) => {
   // 重置表单数据
   runContainerFormData.value = {
     name: '',
-    portMappings: [],
-    volumeMappings: [],
-    envVariables: [],
+    portMappings: '',
+    volumeMappings: '',
+    envVariables: '',
     command: '',
     autoRestart: false,
     networkMode: 'bridge',
     restartPolicy: 'no',
     memoryLimit: '',
     cpuLimit: '',
+    layers: [] as string[],
   };
   runContainerDialogVisible.value = true;
 };
@@ -1365,13 +1361,23 @@ const handlePull = () => {
 };
 
 // 处理单个镜像更新
-const handleUpdate = async (row) => {
+interface ImageUpdateParams {
+  image: string;
+  tag: string;
+  useProxy: boolean;
+  id?: string;
+  layers?: string[];
+}
+
+const handleUpdate = async (row: any) => {
   try {
     const result = await updateImage({
       image: row.name,
       tag: row.tag,
-      useProxy: true, // 默认使用代理
-    });
+      useProxy: false,
+      id: row.id,
+      layers: [] as string[],
+    } as ImageUpdateParams);
 
     if (result.code === 0) {
       MessagePlugin.success('镜像更新请求已提交');
@@ -1385,7 +1391,7 @@ const handleUpdate = async (row) => {
           progress: 0,
           status: 'pending',
           message: '准备更新镜像...',
-          layers: [],
+          layers: [] as string[],
           startTime: Date.now(),
         };
         activePullTasks.value = [newTask, ...activePullTasks.value];
@@ -1453,17 +1459,18 @@ const handleBatchUpdate = async () => {
 const runContainerDialogVisible = ref(false);
 const runContainerForm = ref<any>(null);
 const currentImage = ref<any>(null);
-const runContainerFormData = ref({
-  name: '', // 容器名称
-  portMappings: [], // 端口映射
-  volumeMappings: [], // 卷映射
-  envVariables: [], // 环境变量
-  command: '', // 启动命令
-  autoRestart: false, // 自动重启
-  networkMode: 'bridge', // 网络模式
-  restartPolicy: 'no', // 重启策略
-  memoryLimit: '', // 内存限制
-  cpuLimit: '', // CPU限制
+const runContainerFormData = ref<RunContainerFormData>({
+  name: '',
+  portMappings: '',
+  volumeMappings: '',
+  envVariables: '',
+  command: '',
+  autoRestart: false,
+  networkMode: 'bridge',
+  restartPolicy: 'no',
+  memoryLimit: '',
+  cpuLimit: '',
+  layers: [] as string[],
 });
 
 const runContainerFormRules = {
@@ -1519,6 +1526,37 @@ const onRunContainerConfirm = async () => {
     console.error('创建容器失败:', error);
     MessagePlugin.error('创建容器失败');
   }
+};
+
+interface RunContainerFormData {
+  portMappings: string;
+  volumeMappings: string;
+  envVariables: string;
+  layers: string[];
+  name: string;
+  command: string;
+  autoRestart: boolean;
+  networkMode: string;
+  restartPolicy: string;
+  memoryLimit: string;
+  cpuLimit: string;
+}
+
+interface ContainerCreateResponse {
+  code: number;
+  message: string;
+  data: any;
+}
+
+const createContainer = async (params: any): Promise<ContainerCreateResponse> => {
+  const response = await fetch('/api/containers/create', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(params),
+  });
+  return response.json();
 };
 </script>
 

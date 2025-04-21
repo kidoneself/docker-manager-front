@@ -17,18 +17,18 @@
 </template>
 
 <script lang="ts" setup>
-import type { FormInstanceFunctions, FormRule, SubmitContext } from 'tdesign-vue-next';
+import type { FormInstanceFunctions, FormRule, SubmitContext, Data as TData } from 'tdesign-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { onMounted, ref } from 'vue';
 
 import { deleteSystemSetting, getSystemSetting, setSystemSetting } from '@/api/system';
 
-interface FormData {
+interface Data extends TData {
   proxyUrl: string;
 }
 
 const form = ref<FormInstanceFunctions | null>(null);
-const formData = ref<FormData>({
+const formData = ref<Data>({
   proxyUrl: '',
 });
 
@@ -47,8 +47,8 @@ const loadProxySetting = async () => {
   }
 };
 
-const onSubmit = async (context: SubmitContext<FormData>) => {
-  if (context.validateResult === true) {
+const onSubmit = async ({ validateResult }: { validateResult: boolean | { [key: string]: any } }): Promise<void> => {
+  if (validateResult === true) {
     try {
       await setSystemSetting('proxy_url', formData.value.proxyUrl);
       MessagePlugin.success('保存成功');

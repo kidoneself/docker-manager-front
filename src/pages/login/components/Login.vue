@@ -33,23 +33,22 @@
         </t-input>
       </t-form-item>
 
-      <div class="check-container remember-pwd">
+      <!-- <div class="check-container remember-pwd">
         <t-checkbox>记住密码</t-checkbox>
-        <span class="tip">忘记密码？</span>
-      </div>
+      </div> -->
     </template>
 
     <!-- 扫码登录 -->
-    <template v-else-if="type == 'qrcode'">
+    <!-- <template v-else-if="type == 'qrcode'">
       <div class="tip-container">
         <span class="tip">微信扫码登录</span>
         <span class="refresh">刷新 <t-icon name="refresh" /> </span>
       </div>
       <qrcode-vue value="" :size="160" level="H" />
-    </template>
+    </template> -->
 
     <!-- 手机号登录 -->
-    <template v-else>
+    <!-- <template v-else>
       <t-form-item name="phone">
         <t-input v-model="formData.phone" size="large" placeholder="请输入手机号">
           <template #prefix-icon>
@@ -64,7 +63,7 @@
           {{ countDown == 0 ? '发送验证码' : `${countDown}秒后可重发` }}
         </t-button>
       </t-form-item>
-    </template>
+    </template> -->
 
     <t-form-item v-if="type !== 'qrcode'" class="btn-container">
       <t-button block size="large" type="submit">登录</t-button>
@@ -72,8 +71,8 @@
 
     <div class="switch-container">
       <span v-if="type !== 'password'" class="tip" @click="switchType('password')">账号密码登录</span>
-      <span v-if="type !== 'qrcode'" class="tip" @click="switchType('qrcode')">微信扫码登录</span>
-      <span v-if="type !== 'phone'" class="tip" @click="switchType('phone')">手机号登录</span>
+      <!-- <span v-if="type !== 'qrcode'" class="tip" @click="switchType('qrcode')">微信扫码登录</span> -->
+      <!-- <span v-if="type !== 'phone'" class="tip" @click="switchType('phone')">手机号登录</span> -->
     </div>
   </t-form>
 </template>
@@ -99,10 +98,10 @@ const INITIAL_DATA = {
 };
 
 const FORM_RULES: Record<string, FormRule[]> = {
-  phone: [{ required: true, message: '请输入手机号', type: 'error' }],
+  // phone: [{ required: true, message: '请输入手机号', type: 'error' }],
   account: [{ required: true, message: '请输入账号', type: 'error' }],
   password: [{ required: true, message: '请输入密码', type: 'error' }],
-  verifyCode: [{ required: true, message: '请输入验证码', type: 'error' }],
+  // verifyCode: [{ required: true, message: '请输入验证码', type: 'error' }],
 };
 
 const type = ref('password');

@@ -339,7 +339,8 @@ const isEditMode = computed(() => !!route.query.id);
 // 页面加载时获取镜像列表和router实例
 const router = useRouter();
 onMounted(() => {
-  getContainerDetail(route.query.id).then((res) => {
+  const id = Array.isArray(route.query.id) ? route.query.id[0] : route.query.id;
+  getContainerDetail(id).then((res) => {
     const containerDetail = res.data;
     console.log(containerDetail);
     if (isEditMode.value && containerDetail) {
@@ -569,7 +570,8 @@ const handleCreateContainer = async () => {
 
     if (isEditMode.value) {
       // 更新容器
-      const res = await updateContainer(route.query.id, request);
+      const id = Array.isArray(route.query.id) ? route.query.id[0] : route.query.id;
+      const res = await updateContainer(id, request);
       if (res.code === 0) {
         MessagePlugin.success('更新容器成功');
         router.push('/docker/containers');

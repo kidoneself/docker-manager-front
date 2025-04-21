@@ -52,11 +52,11 @@
               <template #suffix><chevron-down-icon /></template>
             </t-button>
           </t-dropdown>
-          <t-tooltip placement="bottom" content="页面设置">
+          <!-- <t-tooltip placement="bottom" content="页面设置">
             <t-button theme="default" shape="square" variant="text" @click="toggleSettingPanel">
               <setting-icon />
             </t-button>
-          </t-tooltip>
+          </t-tooltip> -->
         </div>
       </template>
     </t-head-menu>

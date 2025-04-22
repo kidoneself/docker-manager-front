@@ -1,116 +1,62 @@
 <template>
   <div class="install-container">
-    <t-card class="install-card">
-      <template #title>
-        <t-space align="center">
-          <img :src="appDetail.icon" class="install-icon" :alt="appDetail.name" />
-          <div>
-            <h2 class="install-title">安装 {{ appDetail.name }}</h2>
-            <t-tag theme="primary" variant="light">{{ appDetail.version }}</t-tag>
+    <t-card :bordered="false">
+      <!-- 安装进度 -->
+      <div class="install-progress">
+        <t-steps :current="currentStep" theme="dot">
+          <t-step-item title="准备安装" content="正在准备安装环境" />
+          <t-step-item title="拉取镜像" content="正在下载所需镜像" />
+          <t-step-item title="创建容器" content="正在创建并配置容器" />
+          <t-step-item title="启动服务" content="正在启动服务" />
+          <t-step-item title="完成" content="安装完成" />
+        </t-steps>
+      </div>
+
+      <!-- 安装日志 -->
+      <div class="install-log">
+        <t-card title="安装日志" :bordered="false">
+          <div class="log-content">
+            <div v-for="(log, index) in installLogs" :key="index" class="log-item">
+              <t-icon :name="getLogIcon(log.type)" class="log-icon" />
+              <span class="log-message">{{ log.message }}</span>
+              <span class="log-time">{{ log.time }}</span>
+            </div>
           </div>
+        </t-card>
+      </div>
+
+      <!-- 服务状态 -->
+      <div class="service-status">
+        <h3 class="section-title">服务状态</h3>
+        <t-table :data="serviceStatus" :columns="statusColumns">
+          <template #status="{ row }">
+            <t-tag :theme="getStatusTheme(row.status)">
+              {{ row.status }}
+            </t-tag>
+          </template>
+        </t-table>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="action-buttons">
+        <t-space>
+          <t-button
+            theme="primary"
+            :loading="isInstalling"
+            :disabled="isInstalling"
+            @click="handleInstall"
+          >
+            开始安装
+          </t-button>
+          <t-button
+            variant="text"
+            :disabled="isInstalling"
+            @click="handleCancel"
+          >
+            取消
+          </t-button>
         </t-space>
-      </template>
-
-      <t-form ref="form" :data="formData" :rules="rules" @submit="handleSubmit">
-        <t-tabs v-model="activeTab">
-          <t-tab-panel value="basic" label="基础配置">
-            <div class="tab-content">
-              <h3>容器配置</h3>
-              <t-form-item label="容器名称" name="containerName">
-                <t-input v-model="formData.containerName" placeholder="请输入容器名称" />
-              </t-form-item>
-              <t-form-item label="重启策略" name="restartPolicy">
-                <t-select v-model="formData.restartPolicy" :options="restartPolicyOptions" />
-              </t-form-item>
-              <t-form-item label="网络模式" name="networkMode">
-                <t-select v-model="formData.networkMode" :options="networkModeOptions" />
-              </t-form-item>
-
-              <h3>存储配置</h3>
-              <t-form-item label="数据卷挂载" name="volumes">
-                <t-space direction="vertical" style="width: 100%">
-                  <div v-for="(volume, index) in formData.volumes" :key="index" class="volume-item">
-                    <t-space>
-                      <t-input v-model="volume.hostPath" placeholder="主机路径" style="width: 200px" />
-                      <t-input v-model="volume.containerPath" placeholder="容器路径" style="width: 200px" />
-                      <t-button theme="danger" variant="text" @click="removeVolume(index)">删除</t-button>
-                    </t-space>
-                  </div>
-                  <t-button theme="default" variant="text" @click="addVolume">添加挂载</t-button>
-                </t-space>
-              </t-form-item>
-
-              <h3>环境变量</h3>
-              <t-form-item label="环境变量" name="environment">
-                <t-space direction="vertical" style="width: 100%">
-                  <div v-for="(env, index) in formData.environment" :key="index" class="env-item">
-                    <t-space>
-                      <t-input v-model="env.key" placeholder="变量名" style="width: 200px" />
-                      <t-input v-model="env.value" placeholder="变量值" style="width: 200px" />
-                      <t-button theme="danger" variant="text" @click="removeEnv(index)">删除</t-button>
-                    </t-space>
-                  </div>
-                  <t-button theme="default" variant="text" @click="addEnv">添加环境变量</t-button>
-                </t-space>
-              </t-form-item>
-            </div>
-          </t-tab-panel>
-
-          <t-tab-panel value="network" label="网络配置">
-            <div class="tab-content">
-              <h3>端口映射</h3>
-              <t-form-item label="端口映射" name="ports">
-                <t-space direction="vertical" style="width: 100%">
-                  <div v-for="(port, index) in formData.ports" :key="index" class="port-item">
-                    <t-space>
-                      <t-input v-model="port.hostPort" placeholder="主机端口" style="width: 150px" />
-                      <t-input v-model="port.containerPort" placeholder="容器端口" style="width: 150px" />
-                      <t-select v-model="port.protocol" :options="protocolOptions" style="width: 100px" />
-                      <t-button theme="danger" variant="text" @click="removePort(index)">删除</t-button>
-                    </t-space>
-                  </div>
-                  <t-button theme="default" variant="text" @click="addPort">添加端口映射</t-button>
-                </t-space>
-              </t-form-item>
-            </div>
-          </t-tab-panel>
-
-          <t-tab-panel value="advanced" label="高级配置">
-            <div class="tab-content">
-              <h3>资源限制</h3>
-              <t-form-item label="CPU限制" name="cpuLimit">
-                <t-input-number v-model="formData.cpuLimit" :min="0.1" :max="32" :step="0.1" />
-                <span class="unit">核</span>
-              </t-form-item>
-              <t-form-item label="内存限制" name="memoryLimit">
-                <t-input-number v-model="formData.memoryLimit" :min="128" :max="32768" :step="128" />
-                <span class="unit">MB</span>
-              </t-form-item>
-
-              <h3>其他配置</h3>
-              <t-form-item label="容器标签" name="labels">
-                <t-space direction="vertical" style="width: 100%">
-                  <div v-for="(label, index) in formData.labels" :key="index" class="label-item">
-                    <t-space>
-                      <t-input v-model="label.key" placeholder="标签名" style="width: 200px" />
-                      <t-input v-model="label.value" placeholder="标签值" style="width: 200px" />
-                      <t-button theme="danger" variant="text" @click="removeLabel(index)">删除</t-button>
-                    </t-space>
-                  </div>
-                  <t-button theme="default" variant="text" @click="addLabel">添加标签</t-button>
-                </t-space>
-              </t-form-item>
-            </div>
-          </t-tab-panel>
-        </t-tabs>
-
-        <template #footer>
-          <t-space>
-            <t-button theme="primary" type="submit">开始安装</t-button>
-            <t-button variant="text" @click="handleBack">返回</t-button>
-          </t-space>
-        </template>
-      </t-form>
+      </div>
     </t-card>
   </div>
 </template>
@@ -122,146 +68,152 @@ import { MessagePlugin } from 'tdesign-vue-next';
 
 const route = useRoute();
 const router = useRouter();
-const form = ref(null);
-const activeTab = ref('basic');
 
-// 模拟应用详情数据
-const appDetail = ref({
-  id: 1,
-  name: 'Nginx',
-  icon: 'https://nginx.org/nginx.png',
-  version: '1.25.3',
-});
+// 安装步骤
+const currentStep = ref(0);
+const isInstalling = ref(false);
 
-// 表单数据
-const formData = ref({
-  containerName: '',
-  restartPolicy: 'unless-stopped',
-  networkMode: 'bridge',
-  volumes: [{ hostPath: '', containerPath: '' }],
-  environment: [{ key: '', value: '' }],
-  ports: [{ hostPort: '', containerPort: '80', protocol: 'tcp' }],
-  cpuLimit: 1,
-  memoryLimit: 1024,
-  labels: [{ key: '', value: '' }],
-});
+// 安装日志
+const installLogs = ref([
+  {
+    type: 'info',
+    message: '开始准备安装环境...',
+    time: new Date().toLocaleTimeString(),
+  },
+  // 更多日志...
+]);
 
-// 表单校验规则
-const rules = {
-  containerName: [{ required: true, message: '请输入容器名称' }],
-  restartPolicy: [{ required: true, message: '请选择重启策略' }],
-  networkMode: [{ required: true, message: '请选择网络模式' }],
-};
+// 服务状态
+const serviceStatus = ref([
+  {
+    name: 'Transmission',
+    status: '等待安装',
+    progress: 0,
+  },
+  {
+    name: 'Emby',
+    status: '等待安装',
+    progress: 0,
+  },
+  // 更多服务...
+]);
 
-// 选项数据
-const restartPolicyOptions = [
-  { label: '不重启', value: 'no' },
-  { label: '总是重启', value: 'always' },
-  { label: '失败时重启', value: 'on-failure' },
-  { label: '除非手动停止', value: 'unless-stopped' },
+// 表格列配置
+const statusColumns = [
+  { colKey: 'name', title: '服务名称' },
+  { colKey: 'status', title: '状态' },
+  { colKey: 'progress', title: '进度' },
 ];
 
-const networkModeOptions = [
-  { label: '桥接模式', value: 'bridge' },
-  { label: '主机模式', value: 'host' },
-  { label: '无网络', value: 'none' },
-];
-
-const protocolOptions = [
-  { label: 'TCP', value: 'tcp' },
-  { label: 'UDP', value: 'udp' },
-];
-
-// 表单操作方法
-const addVolume = () => {
-  formData.value.volumes.push({ hostPath: '', containerPath: '' });
+// 获取日志图标
+const getLogIcon = (type: string) => {
+  const icons = {
+    info: 'info-circle',
+    success: 'check-circle',
+    warning: 'warning',
+    error: 'error-circle',
+  };
+  return icons[type] || 'info-circle';
 };
 
-const removeVolume = (index: number) => {
-  formData.value.volumes.splice(index, 1);
+// 获取状态主题
+const getStatusTheme = (status: string) => {
+  const themes = {
+    '等待安装': 'default',
+    '安装中': 'warning',
+    '已完成': 'success',
+    '失败': 'danger',
+  };
+  return themes[status] || 'default';
 };
 
-const addEnv = () => {
-  formData.value.environment.push({ key: '', value: '' });
-};
-
-const removeEnv = (index: number) => {
-  formData.value.environment.splice(index, 1);
-};
-
-const addPort = () => {
-  formData.value.ports.push({ hostPort: '', containerPort: '', protocol: 'tcp' });
-};
-
-const removePort = (index: number) => {
-  formData.value.ports.splice(index, 1);
-};
-
-const addLabel = () => {
-  formData.value.labels.push({ key: '', value: '' });
-};
-
-const removeLabel = (index: number) => {
-  formData.value.labels.splice(index, 1);
-};
-
-// 提交表单
-const handleSubmit = ({ validateResult }: { validateResult: any }) => {
-  if (validateResult === true) {
+// 开始安装
+const handleInstall = async () => {
+  isInstalling.value = true;
+  try {
+    // TODO: 调用后端API开始安装
     MessagePlugin.success('开始安装...');
-    // TODO: 调用安装API
-    console.log('安装配置:', formData.value);
+  } catch (error) {
+    MessagePlugin.error('安装失败');
+  } finally {
+    isInstalling.value = false;
   }
 };
 
-const handleBack = () => {
+// 取消安装
+const handleCancel = () => {
   router.back();
 };
 
 onMounted(() => {
+  // TODO: 根据路由参数获取安装信息
   const appId = route.params.id;
-  console.log('加载应用安装配置:', appId);
+  console.log('加载安装信息:', appId);
 });
 </script>
 
 <style scoped>
 .install-container {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.install-progress {
+  margin-bottom: 32px;
+}
+
+.install-log {
+  margin-bottom: 32px;
+}
+
+.log-content {
+  max-height: 400px;
+  overflow-y: auto;
   padding: 16px;
+  background-color: var(--td-bg-color-container);
+  border-radius: 4px;
 }
 
-.install-card {
-  margin-bottom: 16px;
+.log-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--td-component-stroke);
 }
 
-.install-icon {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
+.log-item:last-child {
+  border-bottom: none;
 }
 
-.install-title {
-  margin: 0;
-  font-size: 20px;
+.log-icon {
+  margin-right: 8px;
+  font-size: 16px;
 }
 
-.tab-content {
-  padding: 16px;
+.log-message {
+  flex: 1;
+  font-size: 14px;
 }
 
-h3 {
-  margin-top: 0;
-  margin-bottom: 16px;
-}
-
-.volume-item,
-.env-item,
-.port-item,
-.label-item {
-  margin-bottom: 8px;
-}
-
-.unit {
-  margin-left: 8px;
+.log-time {
   color: var(--td-text-color-secondary);
+  font-size: 12px;
+}
+
+.service-status {
+  margin-bottom: 32px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
 }
 </style> 

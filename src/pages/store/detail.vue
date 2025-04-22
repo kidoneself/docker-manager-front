@@ -1,190 +1,304 @@
 <template>
-  <div class="detail-container">
-    <t-card class="detail-card">
-      <template #title>
-        <t-space align="center">
-          <img :src="appDetail.icon" class="detail-icon" :alt="appDetail.name" />
-          <div>
-            <h2 class="detail-title">{{ appDetail.name }}</h2>
-            <t-tag theme="primary" variant="light">{{ appDetail.version }}</t-tag>
+  <div class="detail-wrapper">
+    <div class="detail-container">
+      <t-card :bordered="false">
+        <!-- 应用基本信息 -->
+        <div class="app-info">
+          <div class="app-header">
+            <img :src="appInfo.icon" class="app-icon" :alt="appInfo.name" />
+            <div class="app-meta">
+              <h1 class="app-name">{{ appInfo.name }}</h1>
+              <div class="app-tags">
+                <t-tag theme="primary" variant="light">{{ appInfo.category }}</t-tag>
+                <t-tag theme="success" variant="light">{{ appInfo.version }}</t-tag>
+              </div>
+            </div>
+            <div class="app-actions">
+              <t-space>
+                <t-button theme="primary" @click="handleSubmit">安装</t-button>
+                <t-button variant="text" @click="router.back()">取消</t-button>
+              </t-space>
+            </div>
           </div>
-        </t-space>
-      </template>
+          <div class="app-description">{{ appInfo.description }}</div>
+        </div>
 
-      <t-tabs v-model="activeTab">
-        <t-tab-panel value="overview" label="概览">
-          <div class="tab-content">
-            <p class="description">{{ appDetail.description }}</p>
-            <t-divider />
-            <h3>基本信息</h3>
-            <t-descriptions :column="2" bordered>
-              <t-descriptions-item label="应用名称">{{ appDetail.name }}</t-descriptions-item>
-              <t-descriptions-item label="版本">{{ appDetail.version }}</t-descriptions-item>
-              <t-descriptions-item label="大小">{{ appDetail.size }}</t-descriptions-item>
-              <t-descriptions-item label="更新时间">{{ appDetail.updateTime }}</t-descriptions-item>
-              <t-descriptions-item label="开发者">{{ appDetail.developer }}</t-descriptions-item>
-              <t-descriptions-item label="许可证">{{ appDetail.license }}</t-descriptions-item>
-            </t-descriptions>
+        <!-- 服务选择和配置 -->
+        <div class="config-section">
+          <div class="config-header">
+            <h2 class="section-title">服务配置</h2>
+            <div class="service-selector">
+              <t-checkbox-group v-model="selectedServices">
+                <t-space>
+                  <t-checkbox
+                    v-for="service in appInfo.services"
+                    :key="service.name"
+                    :value="service.name"
+                    :disabled="isServiceDisabled(service)"
+                  >
+                    {{ service.displayName }}
+                  </t-checkbox>
+                </t-space>
+              </t-checkbox-group>
+            </div>
           </div>
-        </t-tab-panel>
-        <t-tab-panel value="config" label="配置说明">
-          <div class="tab-content">
-            <h3>环境要求</h3>
-            <t-descriptions :column="1" bordered>
-              <t-descriptions-item label="操作系统">{{ appDetail.requirements.os }}</t-descriptions-item>
-              <t-descriptions-item label="CPU">{{ appDetail.requirements.cpu }}</t-descriptions-item>
-              <t-descriptions-item label="内存">{{ appDetail.requirements.memory }}</t-descriptions-item>
-              <t-descriptions-item label="磁盘空间">{{ appDetail.requirements.disk }}</t-descriptions-item>
-            </t-descriptions>
-            <t-divider />
-            <h3>配置参数</h3>
-            <t-table :data="appDetail.configs" :columns="configColumns" />
-          </div>
-        </t-tab-panel>
-        <t-tab-panel value="docs" label="文档">
-          <div class="tab-content">
-            <t-collapse>
-              <t-collapse-panel header="快速开始" value="quickstart">
-                <div v-html="appDetail.docs.quickstart"></div>
-              </t-collapse-panel>
-              <t-collapse-panel header="详细配置" value="configuration">
-                <div v-html="appDetail.docs.configuration"></div>
-              </t-collapse-panel>
-              <t-collapse-panel header="常见问题" value="faq">
-                <div v-html="appDetail.docs.faq"></div>
-              </t-collapse-panel>
-            </t-collapse>
-          </div>
-        </t-tab-panel>
-      </t-tabs>
 
-      <template #footer>
-        <t-space>
-          <t-button theme="primary" @click="handleInstall">安装</t-button>
-          <t-button variant="text" @click="handleBack">返回</t-button>
-        </t-space>
-      </template>
-    </t-card>
+          <!-- 配置表单 -->
+          <t-form
+            ref="form"
+            :data="formData"
+            :rules="formRules"
+            label-width="120px"
+            class="config-form"
+          >
+            <t-row :gutter="[16, 16]">
+              <template v-for="field in relevantEnvFields" :key="field.key">
+                <t-col :span="6">
+                  <t-form-item
+                    :name="field.key"
+                    :label="field.label"
+                    :required="field.required"
+                  >
+                    <t-input
+                      v-model="formData[field.key]"
+                      :placeholder="field.default"
+                    />
+                    <template #help>
+                      <div class="field-description">{{ field.description }}</div>
+                    </template>
+                  </t-form-item>
+                </t-col>
+              </template>
+            </t-row>
+          </t-form>
+        </div>
+      </t-card>
+    </div>
   </div>
 </template>
 
-<script lang="ts" setup>
-import { ref, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { MessagePlugin } from 'tdesign-vue-next';
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { MessagePlugin } from 'tdesign-vue-next'
 
-const route = useRoute();
-const router = useRouter();
-const activeTab = ref('overview');
+const route = useRoute()
+const router = useRouter()
 
-// 模拟应用详情数据
-const appDetail = ref({
-  id: 1,
-  name: 'Nginx',
-  description: 'Nginx 是一个高性能的 HTTP 和反向代理 web 服务器，同时也提供了 IMAP/POP3/SMTP 服务。',
-  icon: 'https://nginx.org/nginx.png',
-  version: '1.25.3',
-  size: '2.5MB',
-  updateTime: '2024-03-15',
-  developer: 'Nginx Inc.',
-  license: 'BSD-2-Clause',
-  requirements: {
-    os: 'Linux/Windows/macOS',
-    cpu: '1核以上',
-    memory: '512MB以上',
-    disk: '100MB以上',
-  },
-  configs: [
+// 应用信息
+const appInfo = ref({
+  id: '1',
+  name: 'NAS PT 套件',
+  description: '包含多个媒体和下载服务的套件，提供完整的家庭媒体中心解决方案。支持视频转码、远程下载、媒体管理等功能。',
+  icon: 'https://pan.naspt.vip/d/naspt/emby%E5%9B%BE/MoviePoilt.jpg',
+  category: 'media',
+  version: 'latest',
+  services: [
     {
-      key: 'port',
-      description: '监听端口',
-      type: 'number',
-      default: '80',
-      required: true,
+      name: 'tr',
+      displayName: 'Transmission',
+      description: '轻量级BT下载工具，支持磁力链接和种子文件，提供Web管理界面',
+      dependencies: [],
     },
     {
-      key: 'worker_processes',
-      description: '工作进程数',
-      type: 'number',
-      default: 'auto',
-      required: false,
+      name: 'emby',
+      displayName: 'Emby',
+      description: '功能强大的媒体服务器，支持视频、音乐和照片管理，提供跨平台客户端',
+      dependencies: ['tr'],
     },
+    {
+      name: 'plex',
+      displayName: 'Plex',
+      description: '流行的媒体服务器，提供丰富的客户端支持和转码功能',
+      dependencies: [],
+    },
+    {
+      name: 'sonarr',
+      displayName: 'Sonarr',
+      description: '自动化的TV剧集下载和管理工具',
+      dependencies: ['tr'],
+    }
   ],
-  docs: {
-    quickstart: `
-      <h4>快速安装</h4>
-      <p>1. 下载并解压 Nginx</p>
-      <p>2. 运行安装命令</p>
-      <p>3. 启动服务</p>
-    `,
-    configuration: `
-      <h4>配置文件说明</h4>
-      <p>主要配置文件位于 /etc/nginx/nginx.conf</p>
-      <p>虚拟主机配置位于 /etc/nginx/conf.d/</p>
-    `,
-    faq: `
-      <h4>常见问题</h4>
-      <p>Q: 如何修改监听端口？</p>
-      <p>A: 在配置文件中修改 listen 指令</p>
-    `,
+})
+
+// 环境变量配置
+const envFields = ref([
+  {
+    key: 'TR_PORT',
+    label: 'Transmission Web端口',
+    description: 'Transmission Web界面的访问端口',
+    default: '9091',
+    required: true,
+    serviceDependencies: ['tr'],
   },
-});
+  {
+    key: 'TR_CONFIG_PATH',
+    label: 'Transmission 配置路径',
+    description: 'Transmission 配置文件的存储路径',
+    default: '/volume1/docker/tr/config',
+    required: true,
+    serviceDependencies: ['tr'],
+  },
+  // 更多配置项...
+])
 
-const configColumns = [
-  { colKey: 'key', title: '参数名' },
-  { colKey: 'description', title: '说明' },
-  { colKey: 'type', title: '类型' },
-  { colKey: 'default', title: '默认值' },
-  { colKey: 'required', title: '是否必填' },
-];
+// 选中的服务
+const selectedServices = ref<string[]>([])
 
-const handleInstall = () => {
-  router.push(`/store/install/${appDetail.value.id}`);
-};
+// 表单数据
+const formData = ref<Record<string, string>>({})
+const formRules = ref<Record<string, any>>({})
 
-const handleBack = () => {
-  router.back();
-};
+// 计算相关配置项
+const relevantEnvFields = computed(() => {
+  return envFields.value.filter(field =>
+    field.serviceDependencies.some(service =>
+      selectedServices.value.includes(service)
+    )
+  )
+})
 
-onMounted(() => {
-  // TODO: 根据路由参数获取应用详情
-  const appId = route.params.id;
-  console.log('加载应用详情:', appId);
-});
+// 检查服务是否可选
+const isServiceDisabled = (service: any) => {
+  if (!service.dependencies.length) return false
+  return !service.dependencies.every((dep: string) =>
+    selectedServices.value.includes(dep)
+  )
+}
+
+// 提交表单
+const handleSubmit = async () => {
+  try {
+    // TODO: 调用后端API安装服务
+    MessagePlugin.success('开始安装...')
+  } catch (error) {
+    MessagePlugin.error('安装失败')
+  }
+}
 </script>
 
 <style scoped>
-.detail-container {
-  padding: 16px;
+.detail-wrapper {
+  height: 100%;
+  background-color: var(--td-bg-color-page);
+  padding: 24px;
 }
 
-.detail-card {
+.detail-container {
+  height: 100%;
+  background-color: var(--td-bg-color-container);
+  border-radius: 12px;
+  box-shadow: var(--td-shadow-1);
+  padding: 24px;
+}
+
+.app-info {
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: var(--td-bg-color-container);
+  border-radius: 8px;
+  box-shadow: var(--td-shadow-1);
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
   margin-bottom: 16px;
 }
 
-.detail-icon {
-  width: 64px;
-  height: 64px;
+.app-icon {
+  width: 80px;
+  height: 80px;
   object-fit: contain;
+  border-radius: 8px;
+  background-color: var(--td-bg-color-secondarycontainer);
+  padding: 8px;
 }
 
-.detail-title {
-  margin: 0;
-  font-size: 24px;
+.app-meta {
+  flex: 1;
 }
 
-.tab-content {
-  padding: 16px;
+.app-actions {
+  margin-left: auto;
 }
 
-.description {
+.app-name {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--td-text-color-primary);
+}
+
+.app-tags {
+  display: flex;
+  gap: 8px;
+}
+
+.app-description {
+  font-size: 14px;
   color: var(--td-text-color-secondary);
   line-height: 1.6;
-  margin-bottom: 16px;
 }
 
-h3 {
-  margin-top: 0;
+.config-section {
+  background-color: var(--td-bg-color-container);
+  border-radius: 8px;
+  box-shadow: var(--td-shadow-1);
+  padding: 24px;
+}
+
+.config-header {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--td-component-stroke);
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
   margin-bottom: 16px;
+  color: var(--td-text-color-primary);
+}
+
+.service-selector {
+  margin-top: 16px;
+}
+
+.config-form {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.field-description {
+  font-size: 12px;
+  color: var(--td-text-color-secondary);
+  margin-top: 4px;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 响应式调整 */
+@media screen and (max-width: 1200px) {
+  .config-form :deep(.t-col) {
+    width: 50%;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .detail-wrapper {
+    padding: 16px;
+  }
+
+  .detail-container {
+    padding: 16px;
+  }
+
+  .config-form :deep(.t-col) {
+    width: 100%;
+  }
 }
 </style> 

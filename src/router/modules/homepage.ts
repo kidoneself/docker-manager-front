@@ -14,6 +14,7 @@ export default [
       title: '仪表盘',
       icon: shallowRef(DashboardIcon),
       orderNo: 0,
+      hidden: true,
     },
     children: [
       {
@@ -42,7 +43,6 @@ export default [
         component: () => import('@/pages/docker/containers/index.vue'),
         meta: {
           title: '容器管理',
-          // keepAlive: true, // ✅ 确保需要缓存
         },
       },
       {
@@ -119,7 +119,16 @@ export default [
         name: 'ProxySetting',
         component: () => import('@/pages/system/proxy.vue'),
         meta: {
-          title: '代理设置',
+          title: '加速设置',
+        },
+      },
+      {
+        path: 'xml-editor',
+        name: 'XmlEditor',
+        component: () => import('@/pages/system/xml-editor/index.vue'),
+        meta: {
+          title: 'XML编辑器',
+          hidden: true,
         },
       },
     ],
@@ -133,6 +142,7 @@ export default [
       icon: 'internet',
       title: '外部页面',
       orderNo: 10,
+      hidden: true,
     },
     children: [
       {
@@ -173,6 +183,7 @@ export default [
     meta: {
       title: '应用商店',
       icon: 'app',
+      hidden: true,
     },
     children: [
       {
@@ -181,6 +192,7 @@ export default [
         component: () => import('@/pages/store/index.vue'),
         meta: {
           title: '应用商店',
+          hidden: true,
         },
       },
       {

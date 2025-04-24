@@ -13,6 +13,7 @@
     "dayjs": "^1.11.13",
     "echarts": "5.4.3",
     "lodash": "^4.17.21",
+    "monaco-editor": "^0.52.2",
     "nprogress": "^0.2.0",
     "pinia": "2.1.7",
     "pinia-plugin-persistedstate": "^3.2.0",

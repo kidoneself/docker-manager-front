@@ -155,7 +155,7 @@ onMounted(() => {
 });
 
 const goHome = () => {
-  router.push('/dashboard/base');
+  router.push('/docker/containers');
 };
 
 const getLogo = () => {

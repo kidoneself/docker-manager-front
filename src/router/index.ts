@@ -18,7 +18,7 @@ const defaultRouterList: Array<RouteRecordRaw> = [
   },
   {
     path: '/',
-    redirect: '/dashboard/base',
+    redirect: '/docker/containers',
   },
 ];
 // 存放固定路由

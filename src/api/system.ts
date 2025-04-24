@@ -25,7 +25,11 @@ export function getSystemSetting(key: string) {
  */
 export function setSystemSetting(key: string, value: string) {
   return request.post<SystemSettingResponse>({
-    url: `/system/settings?key=${key}&value=${value}`,
+    url: '/system/settings',
+    data: {
+      key,
+      value
+    }
   } as AxiosRequestConfig);
 }
 
@@ -36,7 +40,11 @@ export function setSystemSetting(key: string, value: string) {
  */
 export function updateSystemSetting(key: string, value: string) {
   return request.put<SystemSettingResponse>({
-    url: `/system/settings?key=${key}&value=${value}`,
+    url: '/system/settings',
+    data: {
+      key,
+      value
+    }
   } as AxiosRequestConfig);
 }
 
@@ -48,4 +56,45 @@ export function deleteSystemSetting(key: string) {
   return request.delete<SystemSettingResponse>({
     url: `/system/settings?key=${key}`,
   } as AxiosRequestConfig);
+}
+
+export interface ProxySettingRequest {
+  enabled: boolean;
+  url: string;
+}
+
+export interface MirrorSettingRequest {
+  urls: {
+    url: string;
+    enabled: boolean;
+  }[];
+}
+
+export interface SettingResponse {
+  code: number;
+  message: string;
+  data: any;
+}
+
+export function setProxySetting(data: ProxySettingRequest) {
+  return request.post<SettingResponse>({
+    url: '/system/settings',
+    data: {
+      key: 'proxy',
+      value: JSON.stringify({
+        enabled: data.enabled,
+        url: data.url
+      })
+    }
+  });
+}
+
+export function setMirrorSetting(data: MirrorSettingRequest) {
+  return request.post<SettingResponse>({
+    url: '/system/settings',
+    data: {
+      key: 'mirror',
+      value: JSON.stringify(data.urls)
+    }
+  });
 }

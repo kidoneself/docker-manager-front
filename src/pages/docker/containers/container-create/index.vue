@@ -36,6 +36,7 @@
             :options="imageOptions"
             :style="{ width: '480px' }"
             class="demo-select-base"
+            :disabled="hasImageParams"
             clearable
             @change="handleImageChange"
           />
@@ -332,6 +333,7 @@ const disablePortMappings = ref(false);
 
 const route = useRoute();
 const isEditMode = computed(() => !!route.query.containerId);
+const hasImageParams = computed(() => !!route.query.image && !!route.query.tag);
 const containerInfo = computed(() => {
   if (route.query.containerInfo) {
     try {
@@ -596,8 +598,20 @@ const complete = () => {
   router.replace({ path: '/docker/containers' });
 };
 
-onMounted(() => {
-  fetchImageList();
+onMounted(async () => {
+  if (hasImageParams.value) {
+    // 如果有镜像参数，直接设置镜像并获取详情
+    const imageName = `${route.query.image}:${route.query.tag}`;
+    formData1.value.imageName = imageName;
+    await handleImageChange(imageName, {
+      option: undefined,
+      selectedOptions: [],
+      trigger: 'manual'
+    });
+  } else {
+    // 否则加载镜像列表
+    fetchImageList();
+  }
   fetchNetworkList();
   if (isEditMode.value && containerInfo.value) {
     // 填充基础配置

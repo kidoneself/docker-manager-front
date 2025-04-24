@@ -3,12 +3,6 @@
     <div class="header">
       <div class="title">镜像列表</div>
       <div class="actions">
-        <t-button theme="primary" @click="handleRegistry">
-          <template #icon>
-            <t-icon name="server" />
-          </template>
-          仓库管理
-        </t-button>
         <t-button theme="primary" @click="handlePull">
           <template #icon>
             <t-icon name="add" />
@@ -27,12 +21,7 @@
           </template>
           批量更新
         </t-button>
-        <t-button @click="handleTestProxy">
-          <template #icon>
-            <t-icon name="time" />
-          </template>
-          测试代理延迟
-        </t-button>
+
         <t-button @click="fetchImages">
           <template #icon>
             <t-icon name="refresh" />
@@ -42,26 +31,7 @@
       </div>
     </div>
 
-    <!-- 添加代理测试结果对话框 -->
-    <t-dialog v-model:visible="proxyTestDialogVisible" header="代理延迟测试结果" :close-on-overlay-click="false">
-      <div v-if="proxyTestResult" class="proxy-test-result">
-        <t-alert theme="info" message="测试目标: Docker Hub (registry-1.docker.io)" />
-        <div class="test-metrics">
-          <div class="metric-item">
-            <span class="metric-label">HTTP延迟时间:</span>
-            <span class="metric-value">{{ proxyTestResult.httpConnectTime }}ms</span>
-          </div>
-          <div class="metric-item">
-            <span class="metric-label">HTTPS延迟时间:</span>
-            <span class="metric-value">{{ proxyTestResult.httpsConnectTime }}ms</span>
-          </div>
-        </div>
-        <t-alert :theme="getProxyTestAlertTheme()" :message="getProxyTestSuggestion()" />
-      </div>
-      <div v-else class="proxy-test-loading">
-        <t-loading text="正在测试代理延迟..." />
-      </div>
-    </t-dialog>
+
 
     <!-- 添加正在拉取的镜像列表 -->
     <div v-if="activePullTasks.length > 0" class="pulling-images-section">
@@ -98,16 +68,13 @@
 
     <t-table :data="images" :columns="columns" :loading="loading" row-key="Id">
       <template #id="{ row }">
-        <t-tag theme="default" variant="light">{{ row.Id.slice(0, 12) }}</t-tag>
+        <t-tag theme="default" variant="light">{{ row.Id.replace('sha256:', '').slice(0, 12) }}</t-tag>
       </template>
       <template #name="{ row }">
         <t-tag theme="primary" variant="light">{{ row.name }}</t-tag>
       </template>
       <template #tag="{ row }">
         <t-tag theme="warning" variant="light">{{ row.tag }}</t-tag>
-      </template>
-      <template #size="{ row }">
-        <span>{{ formatSize(row.size) }}</span>
       </template>
       <template #created="{ row }">
         <span>{{ formatDate(row.created) }}</span>
@@ -125,97 +92,27 @@
       </template>
       <template #operation="{ row }">
         <t-space size="small">
-          <t-tooltip content="创建容器">
-            <t-button size="small" shape="circle" variant="outline" theme="primary" @click="handleRun(row)">
-              <template #icon>
-                <t-icon name="play" />
-              </template>
-            </t-button>
-          </t-tooltip>
-          <t-tooltip v-if="row.needUpdate" content="更新镜像">
-            <t-button size="small" shape="circle" theme="warning" @click="handleUpdate(row)">
-              <template #icon>
-                <t-icon name="refresh" />
-              </template>
-            </t-button>
-          </t-tooltip>
-          <t-tooltip content="删除镜像">
-            <t-button size="small" shape="circle" theme="danger" @click="handleDelete(row)">
-              <template #icon>
-                <t-icon name="delete" />
-              </template>
-            </t-button>
-          </t-tooltip>
+          <t-button size="small" theme="primary" @click="handleRun(row)">
+            <template #icon>
+              <t-icon name="play" />
+            </template>
+            创建
+          </t-button>
+          <t-button v-if="row.needUpdate" size="small" theme="warning" @click="handleUpdate(row)">
+            <template #icon>
+              <t-icon name="refresh" />
+            </template>
+            更新
+          </t-button>
+          <t-button size="small" theme="danger" @click="handleDelete(row)">
+            <template #icon>
+              <t-icon name="delete" />
+            </template>
+            删除
+          </t-button>
         </t-space>
       </template>
     </t-table>
-
-    <!-- 仓库管理对话框 -->
-    <t-dialog v-model:visible="registryDialogVisible" header="仓库管理" :close-on-overlay-click="false" width="800px">
-      <div class="registry-container">
-        <div class="registry-header">
-          <t-button theme="primary" @click="handleAddRegistry">
-            <template #icon>
-              <t-icon name="add" />
-            </template>
-            添加仓库
-          </t-button>
-        </div>
-        <t-table :data="registries" :columns="registryColumns" :loading="registryLoading" row-key="registry">
-          <template #registry="{ row }">
-            <t-tag theme="primary" variant="light">{{ row.registry }}</t-tag>
-          </template>
-          <template #status="{ row }">
-            <t-tag :theme="row.status ? 'success' : 'warning'" variant="light">
-              {{ row.status ? '已登录' : '未登录' }}
-            </t-tag>
-          </template>
-          <template #operation="{ row }">
-            <t-space>
-              <t-button theme="primary" @click="handleRegistryLogin(row)">登录</t-button>
-              <t-button theme="danger" @click="handleRegistryDelete(row)">删除</t-button>
-            </t-space>
-          </template>
-        </t-table>
-      </div>
-    </t-dialog>
-
-    <!-- 添加仓库对话框 -->
-    <t-dialog
-      v-model:visible="addRegistryDialogVisible"
-      header="添加仓库"
-      :on-confirm="onAddRegistryConfirm"
-      :close-on-overlay-click="false"
-    >
-      <t-form ref="addRegistryForm" :data="addRegistryFormData" :rules="addRegistryFormRules" label-width="100px">
-        <t-form-item label="仓库地址" name="registry">
-          <t-input v-model="addRegistryFormData.registry" placeholder="请输入仓库地址" />
-        </t-form-item>
-        <t-form-item label="用户名" name="username">
-          <t-input v-model="addRegistryFormData.username" placeholder="请输入用户名" />
-        </t-form-item>
-        <t-form-item label="密码" name="password">
-          <t-input v-model="addRegistryFormData.password" type="password" placeholder="请输入密码" />
-        </t-form-item>
-      </t-form>
-    </t-dialog>
-
-    <!-- 登录仓库对话框 -->
-    <t-dialog
-      v-model:visible="loginRegistryDialogVisible"
-      header="登录仓库"
-      :on-confirm="onLoginRegistryConfirm"
-      :close-on-overlay-click="false"
-    >
-      <t-form ref="loginRegistryForm" :data="loginRegistryFormData" :rules="loginRegistryFormRules" label-width="100px">
-        <t-form-item label="用户名" name="username">
-          <t-input v-model="loginRegistryFormData.username" placeholder="请输入用户名" />
-        </t-form-item>
-        <t-form-item label="密码" name="password">
-          <t-input v-model="loginRegistryFormData.password" type="password" placeholder="请输入密码" />
-        </t-form-item>
-      </t-form>
-    </t-dialog>
 
     <!-- 拉取镜像对话框 -->
     <t-dialog
@@ -353,72 +250,23 @@
         </p>
       </div>
     </t-dialog>
-
-    <!-- 创建容器对话框 -->
-    <t-dialog
-      v-model:visible="runContainerDialogVisible"
-      header="创建容器"
-      :close-on-overlay-click="false"
-      width="800px"
-    >
-      <t-form ref="runContainerForm" :data="runContainerFormData" :rules="runContainerFormRules" label-width="100px">
-        <t-form-item label="容器名称" name="name">
-          <t-input v-model="runContainerFormData.name" placeholder="请输入容器名称" />
-        </t-form-item>
-        <t-form-item label="端口映射" name="portMappings">
-          <t-input v-model="runContainerFormData.portMappings" placeholder="请输入端口映射，例如：8080:80" />
-        </t-form-item>
-        <t-form-item label="卷映射" name="volumeMappings">
-          <t-input
-            v-model="runContainerFormData.volumeMappings"
-            placeholder="请输入卷映射，例如：/host/path:/container/path"
-          />
-        </t-form-item>
-        <t-form-item label="环境变量" name="envVariables">
-          <t-input v-model="runContainerFormData.envVariables" placeholder="请输入环境变量，例如：VAR=value" />
-        </t-form-item>
-        <t-form-item label="启动命令" name="command">
-          <t-input v-model="runContainerFormData.command" placeholder="请输入启动命令" />
-        </t-form-item>
-        <t-form-item label="自动重启" name="autoRestart">
-          <t-switch v-model="runContainerFormData.autoRestart" />
-        </t-form-item>
-        <t-form-item label="网络模式" name="networkMode">
-          <t-select v-model="runContainerFormData.networkMode" :options="networkModeOptions" />
-        </t-form-item>
-        <t-form-item label="重启策略" name="restartPolicy">
-          <t-select v-model="runContainerFormData.restartPolicy" :options="restartPolicyOptions" />
-        </t-form-item>
-        <t-form-item label="内存限制" name="memoryLimit">
-          <t-input v-model="runContainerFormData.memoryLimit" placeholder="请输入内存限制，例如：512m" />
-        </t-form-item>
-        <t-form-item label="CPU限制" name="cpuLimit">
-          <t-input v-model="runContainerFormData.cpuLimit" placeholder="请输入CPU限制，例如：1" />
-        </t-form-item>
-      </t-form>
-    </t-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Client } from '@stomp/stompjs';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { onMounted, onUnmounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import type { InputValue } from 'tdesign-vue-next';
+import { dockerWebSocketAPI } from '@/api/docker';
+import type { PullImageProgress } from '@/api/docker';
 
 import {
-  addRegistry,
   batchUpdateImages,
   cancelImagePull,
   checkImageUpdates,
   deleteImage,
-  deleteRegistry,
   getImageList,
-  getImagePullProgress,
-  getLoginStatus,
-  getRegistries,
-  loginDockerRegistry,
-  pullImage,
   testProxyLatency,
   updateImage,
 } from '@/api/container';
@@ -426,34 +274,19 @@ import {
 // ==================== 1. 响应式数据定义 ====================
 const images = ref([]);
 const loading = ref(false);
-const loginDialogVisible = ref(false);
-const loginForm = ref<any>(null);
-const loginFormData = ref({
-  registry: '',
-  username: '',
-  password: '',
-});
 
-// ==================== 2. 表单验证规则 ====================
-// const loginFormRules = {
-//   registry: [{ required: true, message: '请输入仓库地址' }],
-//   username: [{ required: true, message: '请输入用户名' }],
-//   password: [{ required: true, message: '请输入密码' }],
-// };
-
-// ==================== 3. 表格列配置 ====================
+// ==================== 2. 表格列配置 ====================
 const columns = [
   { colKey: 'Id', title: '镜像ID', width: 120 },
   { colKey: 'name', title: '镜像名称', width: 220 },
   { colKey: 'tag', title: '标签', width: 100 },
-  { colKey: 'size', title: '大小', width: 100 },
-  { colKey: 'created', title: '创建时间', width: 180 },
+  { colKey: 'created', title: '创建时间', width: 160 },
+  { colKey: 'lastChecked', title: '上次检查', width: 140 },
   { colKey: 'needUpdate', title: '更新状态', width: 100 },
-  { colKey: 'lastChecked', title: '上次检查', width: 180 },
   { colKey: 'operation', title: '操作', width: 200 },
 ];
 
-// ==================== 4. 工具函数 ====================
+// ==================== 3. 工具函数 ====================
 const formatSize = (size: number): string => {
   if (!size) return '未知';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -476,14 +309,7 @@ const formatDate = (date: string): string => {
   return date;
 };
 
-const formatLabels = (labels: Record<string, string> | null) => {
-  if (!labels) return '无';
-  return Object.entries(labels)
-    .map(([key, value]) => `${key}: ${value}`)
-    .join(', ');
-};
-
-// ==================== 5. API调用函数 ====================
+// ==================== 4. API调用函数 ====================
 // 获取镜像列表
 const fetchImages = async () => {
   loading.value = true;
@@ -498,7 +324,7 @@ const fetchImages = async () => {
         }
         return {
           ...img,
-          Id: imageId,
+          Id: imageId.replace('sha256:', '').slice(0, 12),
           name: img.name || '未命名镜像',
           tag: img.tag || 'latest',
         };
@@ -514,7 +340,7 @@ const fetchImages = async () => {
   }
 };
 
-// ==================== 6. 事件处理函数 ====================
+// ==================== 5. 事件处理函数 ====================
 const handleDelete = (row: any) => {
   if (!row.Id) {
     MessagePlugin.error('无法获取镜像ID，删除操作失败');
@@ -547,7 +373,7 @@ const confirmDelete = async () => {
   }
 };
 
-// ==================== 7. 生命周期钩子 ====================
+// ==================== 6. 生命周期钩子 ====================
 onMounted(() => {
   fetchImages();
   const cleanupInterval = setInterval(cleanupOldTasks, 60 * 60 * 1000);
@@ -556,7 +382,7 @@ onMounted(() => {
   });
 });
 
-// ==================== 8. 拉取镜像相关状态 ====================
+// ==================== 7. 拉取镜像相关状态 ====================
 const pullImageDialogVisible = ref(false);
 const pullImageForm = ref<any>(null);
 const pullImageFormData = ref({
@@ -570,11 +396,6 @@ const pullStatus = ref<'active' | 'success' | 'warning' | 'error'>('active');
 const pullMessage = ref('');
 const pullLayers = ref<any[]>([]);
 const pullTaskId = ref('');
-const stompClient = ref<Client | null>(null);
-const socketConnected = ref(false);
-const connectionAttempts = ref(0);
-const maxReconnectAttempts = 5;
-const reconnectInterval = ref(2000);
 
 const pullImageFormRules = {
   image: [{ required: true, message: '请输入镜像地址' }],
@@ -658,7 +479,7 @@ const getProgressStatus = (status: string) => {
   }
 };
 
-// 修改原有的拉取镜像确认函数，将任务添加到活动任务列表
+// 修改拉取镜像确认函数
 const onPullImageConfirm = async () => {
   try {
     await pullImageForm.value?.validate();
@@ -667,225 +488,54 @@ const onPullImageConfirm = async () => {
     pullStatus.value = 'active';
     pullMessage.value = '准备拉取镜像...';
 
-    console.log('提交拉取镜像请求:', pullImageFormData.value);
-    const result = await pullImage({
-      image: pullImageFormData.value.image,
-      tag: pullImageFormData.value.tag,
-      useProxy: pullImageFormData.value.useProxy,
-    });
-
-    if (result.code === 0) {
-      console.log('拉取请求成功，获取任务ID:', result.data.taskId);
-
-      // 获取任务ID并开始WebSocket连接
-      pullTaskId.value = result.data.taskId;
-
-      // 添加到活动任务列表
-      const newTask: PullTask = {
-        taskId: result.data.taskId,
-        image: pullImageFormData.value.image,
-        tag: pullImageFormData.value.tag,
-        useProxy: pullImageFormData.value.useProxy,
-        progress: 0,
-        status: 'pending',
-        message: '准备拉取镜像...',
-        layers: [],
-        startTime: Date.now(),
-      };
-
-      // 添加到活动任务列表
-      activePullTasks.value = [newTask, ...activePullTasks.value];
-
-      connectWebSocket(pullTaskId.value);
-      fetchInitialProgress();
-    } else {
-      MessagePlugin.error(result.message || '镜像拉取失败');
-      isPulling.value = false;
-      pullImageDialogVisible.value = false;
-    }
+    await dockerWebSocketAPI.pullImage(
+      {
+        imageName: `${pullImageFormData.value.image}:${pullImageFormData.value.tag}`,
+        useProxy: pullImageFormData.value.useProxy
+      },
+      {
+        onStart: (taskId) => {
+          pullTaskId.value = taskId;
+          pullMessage.value = '开始拉取镜像...';
+        },
+        onProgress: (progress) => {
+          updatePullProgress(progress);
+        },
+        onComplete: () => {
+          pullStatus.value = 'success';
+          pullMessage.value = '镜像拉取完成';
+          MessagePlugin.success('镜像拉取成功');
+          setTimeout(() => {
+            isPulling.value = false;
+            pullImageDialogVisible.value = false;
+            fetchImages();
+          }, 1500);
+        },
+        onError: (error) => {
+          pullStatus.value = 'error';
+          pullMessage.value = error;
+          MessagePlugin.error(`拉取镜像失败: ${error}`);
+          setTimeout(() => {
+            isPulling.value = false;
+            pullImageDialogVisible.value = false;
+          }, 3000);
+        }
+      }
+    );
   } catch (error) {
     console.error('拉取镜像出错:', error);
-    MessagePlugin.error('镜像拉取失败');
+    MessagePlugin.error(error instanceof Error ? error.message : '镜像拉取失败');
     isPulling.value = false;
+    pullImageDialogVisible.value = false;
   }
 };
 
-// 获取初始进度信息
-const fetchInitialProgress = async () => {
-  try {
-    console.log('获取初始进度信息，任务ID:', pullTaskId.value);
-    const progressResult = await getImagePullProgress(pullTaskId.value);
-    if (progressResult.code === 0) {
-      console.log('获取到初始进度信息:', progressResult.data);
-      updatePullProgress(progressResult.data);
-    } else {
-      console.warn('获取初始进度失败:', progressResult.message);
-    }
-  } catch (error) {
-    console.error('获取初始进度出错:', error);
-  }
-
-  // 设置定时获取进度 (备用方案，以防WebSocket失败)
-  // startProgressPolling();
-};
-
-// 备用方案：定时轮询进度
-// const progressTimer = ref<number | null>(null);
-// const startProgressPolling = () => {
-//   if (progressTimer.value) {
-//     clearInterval(progressTimer.value);
-//   }
-//
-//   // 每3秒轮询一次作为后备措施
-//   progressTimer.value = window.setInterval(async () => {
-//     if (!isPulling.value || !pullTaskId.value) {
-//       clearInterval(progressTimer.value!);
-//       return;
-//     }
-//
-//     try {
-//       const response = await getImagePullProgress(pullTaskId.value);
-//       if (response.code === 0) {
-//         console.log('轮询获取进度:', response.data.progress);
-//         // 如果WebSocket没有更新进度，则使用轮询结果
-//         updatePullProgress(response.data);
-//       }
-//     } catch (error) {
-//       console.error('轮询进度失败:', error);
-//     }
-//   }, 3000);
-// };
-
-// 停止轮询
-// const stopProgressPolling = () => {
-//   if (progressTimer.value) {
-//     clearInterval(progressTimer.value);
-//     progressTimer.value = null;
-//   }
-// };
-
-// 连接WebSocket
-const connectWebSocket = (taskId: string) => {
-  // 断开之前的连接
-  disconnectWebSocket();
-
-  if (connectionAttempts.value >= maxReconnectAttempts) {
-    console.warn('达到最大重连次数，切换到轮询模式');
-    return;
-  }
-
-  connectionAttempts.value++;
-  console.log(`WebSocket连接尝试 ${connectionAttempts.value}/${maxReconnectAttempts}`);
-
-  try {
-    // 创建新的WebSocket连接
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
-    console.log('连接WebSocket:', wsUrl);
-
-    const client = new Client({
-      brokerURL: wsUrl,
-      connectHeaders: {},
-      debug(str) {
-        console.log('STOMP:', str);
-      },
-      reconnectDelay: 5000,
-      heartbeatIncoming: 4000,
-      heartbeatOutgoing: 4000,
-    });
-
-    // 连接成功后订阅拉取进度主题
-    client.onConnect = function () {
-      socketConnected.value = true;
-      console.log('WebSocket连接成功，订阅进度主题');
-
-      // 重置重连计数
-      connectionAttempts.value = 0;
-
-      // 订阅特定任务的进度主题
-      client.subscribe(`/topic/image/pull/${taskId}`, (message) => {
-        try {
-          const progressData = JSON.parse(message.body);
-          console.log('接收到WebSocket进度:', progressData.progress);
-          updatePullProgress(progressData);
-        } catch (e) {
-          console.error('解析WebSocket消息失败:', e);
-        }
-      });
-
-      console.log('WebSocket订阅已完成');
-    };
-
-    client.onStompError = function (frame) {
-      console.error('STOMP错误:', frame.headers.message);
-      console.error('错误详情:', frame.body);
-
-      // 重连或切换到轮询模式
-      reconnectWebSocket(taskId);
-    };
-
-    client.onWebSocketError = function (event) {
-      console.error('WebSocket连接错误:', event);
-      reconnectWebSocket(taskId);
-    };
-
-    client.onWebSocketClose = function (event) {
-      console.warn('WebSocket连接关闭:', event);
-      if (socketConnected.value) {
-        socketConnected.value = false;
-        reconnectWebSocket(taskId);
-      }
-    };
-
-    // 启动连接
-    client.activate();
-    stompClient.value = client;
-  } catch (error) {
-    console.error('创建WebSocket连接失败:', error);
-    reconnectWebSocket(taskId);
-  }
-};
-
-// 重连WebSocket
-const reconnectWebSocket = (taskId: string) => {
-  if (!isPulling.value) return;
-
-  if (connectionAttempts.value < maxReconnectAttempts) {
-    console.log(`尝试重连 (${connectionAttempts.value}/${maxReconnectAttempts})...`);
-    setTimeout(() => {
-      connectWebSocket(taskId);
-    }, reconnectInterval.value);
-
-    // 增加重连延迟
-    reconnectInterval.value = Math.min(reconnectInterval.value * 1.5, 10000);
-  } else {
-    console.warn('WebSocket连接失败，切换到轮询模式');
-  }
-};
-
-// 断开WebSocket连接
-const disconnectWebSocket = () => {
-  if (stompClient.value) {
-    try {
-      if (stompClient.value.connected) {
-        stompClient.value.deactivate();
-        console.log('WebSocket已断开连接');
-      }
-    } catch (e) {
-      console.error('断开WebSocket失败:', e);
-    }
-    stompClient.value = null;
-  }
-  socketConnected.value = false;
-  // stopProgressPolling();
-};
-
-// 修改更新进度函数，同时更新活动任务列表中的进度
-const updatePullProgress = (data: any) => {
+// 修改更新进度函数
+const updatePullProgress = (data: PullImageProgress) => {
   if (!data) return;
 
   pullProgress.value = data.progress || 0;
-  pullMessage.value = data.message || '准备拉取镜像...';
+  pullMessage.value = data.status || '准备拉取镜像...';
 
   // 更新活动任务列表中的进度
   const taskIndex = activePullTasks.value.findIndex((task) => task.taskId === pullTaskId.value);
@@ -893,7 +543,7 @@ const updatePullProgress = (data: any) => {
     const updatedTask = { ...activePullTasks.value[taskIndex] };
     updatedTask.progress = data.progress || 0;
     updatedTask.status = data.status || updatedTask.status;
-    updatedTask.message = data.message || updatedTask.message;
+    updatedTask.message = data.status || updatedTask.message;
 
     if (data.layers && Array.isArray(data.layers)) {
       // 排序层，把未完成的放前面
@@ -914,54 +564,9 @@ const updatePullProgress = (data: any) => {
       currentTaskDetails.value = { ...updatedTask };
     }
   }
-
-  // if (data.layers && Array.isArray(data.layers)) {
-  //   // 排序层，把未完成的放前面
-  //   const sortedLayers = [...data.layers].sort((a, b) => {
-  //     const aCompleted = isLayerCompleted(a);
-  //     const bCompleted = isLayerCompleted(b);
-  //     if (aCompleted && !bCompleted) return 1;
-  //     if (!aCompleted && bCompleted) return -1;
-  //     return 0;
-  //   });
-  //   pullLayers.value = sortedLayers;
-  // }
-
-  // 设置状态
-  if (data.status === 'error' || data.isError) {
-    pullStatus.value = 'error';
-    disconnectWebSocket();
-    MessagePlugin.error(`拉取镜像失败: ${data.message}`);
-
-    // 3秒后关闭对话框
-    setTimeout(() => {
-      isPulling.value = false;
-      pullImageDialogVisible.value = false;
-    }, 3000);
-  } else if (data.completed) {
-    pullStatus.value = 'success';
-    disconnectWebSocket();
-    MessagePlugin.success('镜像拉取成功');
-
-    // 1.5秒后关闭对话框并刷新列表
-    setTimeout(() => {
-      isPulling.value = false;
-      pullImageDialogVisible.value = false;
-      fetchImages();
-    }, 1500);
-  } else if (data.status === 'canceled') {
-    pullStatus.value = 'warning';
-    disconnectWebSocket();
-    MessagePlugin.warning('拉取镜像已取消');
-
-    // 1.5秒后关闭对话框
-    setTimeout(() => {
-      isPulling.value = false;
-      pullImageDialogVisible.value = false;
-    }, 1500);
-  }
 };
 
+// 修改取消拉取方法
 const handleCancelPull = async () => {
   if (!pullTaskId.value) {
     isPulling.value = false;
@@ -970,18 +575,11 @@ const handleCancelPull = async () => {
   }
 
   try {
-    console.log('取消拉取任务:', pullTaskId.value);
-    const result = await cancelImagePull(pullTaskId.value);
-
-    if (result.code === 0) {
-      disconnectWebSocket();
-      MessagePlugin.warning('已取消拉取镜像');
-    } else {
-      MessagePlugin.error(result.message || '取消拉取失败');
-    }
+    await dockerWebSocketAPI.cancelPull(pullTaskId.value);
+    MessagePlugin.warning('已取消拉取镜像');
   } catch (error) {
     console.error('取消拉取失败:', error);
-    MessagePlugin.error('取消拉取失败');
+    MessagePlugin.error(error instanceof Error ? error.message : '取消拉取失败');
   } finally {
     isPulling.value = false;
     pullImageDialogVisible.value = false;
@@ -990,188 +588,23 @@ const handleCancelPull = async () => {
 
 // 组件卸载时清除连接
 onUnmounted(() => {
-  disconnectWebSocket();
+  dockerWebSocketAPI.disconnect();
 });
 
+// 修改创建容器处理函数
+const router = useRouter();
 const handleRun = (row: any) => {
-  currentImage.value = row;
-  // 重置表单数据
-  runContainerFormData.value = {
-    name: '',
-    portMappings: '',
-    volumeMappings: '',
-    envVariables: '',
-    command: '',
-    autoRestart: false,
-    networkMode: 'bridge',
-    restartPolicy: 'no',
-    memoryLimit: '',
-    cpuLimit: '',
-    layers: [] as string[],
-  };
-  runContainerDialogVisible.value = true;
+  router.push({
+    path: '/docker/create',
+    query: {
+      image: row.name,
+      tag: row.tag
+    }
+  });
 };
 
 const deleteConfirmVisible = ref(false);
 const currentDeleteImage = ref<any>(null);
-
-// const handleLogin = () => {
-//   loginDialogVisible.value = true;
-// };
-
-// const onLoginConfirm = async () => {
-//   try {
-//     if (!loginForm.value) {
-//       MessagePlugin.error('表单实例不存在');
-//       return;
-//     }
-//     await loginForm.value.validate();
-//     const result = await loginDockerRegistry(loginFormData.value);
-//     if (result.code === 0) {
-//       MessagePlugin.success('登录成功');
-//       loginDialogVisible.value = false;
-//     } else {
-//       MessagePlugin.error(result.message || '登录失败');
-//     }
-//   } catch (error) {
-//     MessagePlugin.error('登录失败');
-//   }
-// };
-
-// 仓库管理相关
-const registryDialogVisible = ref(false);
-const addRegistryDialogVisible = ref(false);
-const loginRegistryDialogVisible = ref(false);
-const registries = ref([]);
-const registryLoading = ref(false);
-const addRegistryForm = ref<any>(null);
-const loginRegistryForm = ref<any>(null);
-const currentRegistry = ref<any>(null);
-
-const addRegistryFormData = ref({
-  registry: '',
-  username: '',
-  password: '',
-});
-
-const loginRegistryFormData = ref({
-  username: '',
-  password: '',
-});
-
-const addRegistryFormRules = {
-  registry: [{ required: true, message: '请输入仓库地址' }],
-  username: [{ required: true, message: '请输入用户名' }],
-  password: [{ required: true, message: '请输入密码' }],
-};
-
-const loginRegistryFormRules = {
-  username: [{ required: true, message: '请输入用户名' }],
-  password: [{ required: true, message: '请输入密码' }],
-};
-
-const registryColumns = [
-  { colKey: 'registry', title: '仓库地址', width: 200 },
-  { colKey: 'status', title: '状态', width: 100 },
-  { colKey: 'operation', title: '操作', width: 200 },
-];
-
-const handleRegistry = () => {
-  registryDialogVisible.value = true;
-  fetchRegistries();
-};
-
-const fetchRegistries = async () => {
-  registryLoading.value = true;
-  try {
-    const response = await getRegistries();
-    if (response.code === 0) {
-      registries.value = await Promise.all(
-        response.data.map(async (registry: any) => {
-          const statusResponse = await getLoginStatus(registry.registry);
-          return {
-            ...registry,
-            status: statusResponse.code === 0 && statusResponse.data,
-          };
-        }),
-      );
-    } else {
-      MessagePlugin.error(response.message || '获取仓库列表失败');
-    }
-  } catch (error) {
-    console.error('获取仓库列表失败:', error);
-    MessagePlugin.error('获取仓库列表失败');
-  } finally {
-    registryLoading.value = false;
-  }
-};
-
-const handleAddRegistry = () => {
-  addRegistryDialogVisible.value = true;
-};
-
-const onAddRegistryConfirm = async () => {
-  try {
-    if (!addRegistryForm.value) {
-      MessagePlugin.error('表单实例不存在');
-      return;
-    }
-    await addRegistryForm.value.validate();
-    const result = await addRegistry(addRegistryFormData.value);
-    if (result.code === 0) {
-      MessagePlugin.success('添加仓库成功');
-      addRegistryDialogVisible.value = false;
-      fetchRegistries();
-    } else {
-      MessagePlugin.error(result.message || '添加仓库失败');
-    }
-  } catch (error) {
-    MessagePlugin.error('添加仓库失败');
-  }
-};
-
-const handleRegistryLogin = (row: any) => {
-  currentRegistry.value = row;
-  loginRegistryDialogVisible.value = true;
-};
-
-const onLoginRegistryConfirm = async () => {
-  try {
-    if (!loginRegistryForm.value || !currentRegistry.value) {
-      MessagePlugin.error('表单实例或当前仓库信息不存在');
-      return;
-    }
-    await loginRegistryForm.value.validate();
-    const result = await loginDockerRegistry({
-      registry: currentRegistry.value.registry,
-      username: loginRegistryFormData.value.username,
-      password: loginRegistryFormData.value.password,
-    });
-    if (result.code === 0) {
-      MessagePlugin.success('登录成功');
-      loginRegistryDialogVisible.value = false;
-      fetchRegistries();
-    } else {
-      MessagePlugin.error(result.message || '登录失败');
-    }
-  } catch (error) {
-    MessagePlugin.error('登录失败');
-  }
-};
-
-const handleRegistryDelete = async (row: any) => {
-  try {
-    const result = await deleteRegistry(row.registry);
-    if (result.code === 0) {
-      MessagePlugin.success('删除仓库成功');
-      fetchRegistries();
-    } else {
-      MessagePlugin.error(result.message || '删除仓库失败');
-    }
-  } catch (error) {
-    MessagePlugin.error('删除仓库失败');
-  }
-};
 
 // 计算各层的进度百分比
 const getLayerProgress = (layer: any) => {
@@ -1240,12 +673,6 @@ const isLayerCompleted = (layer: any) => {
 const showPullTaskDetails = (task: any) => {
   currentTaskDetails.value = { ...task };
   pullTaskDetailsVisible.value = true;
-
-  // 如果任务还在进行中，连接WebSocket获取实时更新
-  if (task.status === 'pending' || task.status === 'running') {
-    pullTaskId.value = task.taskId;
-    connectWebSocket(task.taskId);
-  }
 };
 
 // 取消指定任务
@@ -1266,7 +693,7 @@ const handleCancelPullTask = async (task: any) => {
 
       // 如果当前正在显示该任务的详情，也需要断开连接
       if (pullTaskId.value === task.taskId) {
-        disconnectWebSocket();
+        dockerWebSocketAPI.disconnect();
       }
 
       MessagePlugin.warning('已取消拉取镜像');
@@ -1299,53 +726,6 @@ const cleanupOldTasks = () => {
   });
 };
 
-// 添加代理测试相关状态
-const proxyTestDialogVisible = ref(false);
-const proxyTestResult = ref<any>(null);
-const proxyTestLoading = ref(false);
-
-// 添加代理测试方法
-const handleTestProxy = async () => {
-  proxyTestDialogVisible.value = true;
-  proxyTestLoading.value = true;
-  proxyTestResult.value = null;
-
-  try {
-    const result = await testProxyLatency();
-    if (result.code === 0) {
-      proxyTestResult.value = result.data;
-    } else {
-      MessagePlugin.error(result.message || '测试代理延迟失败');
-    }
-  } catch (error) {
-    console.error('测试代理延迟失败:', error);
-    MessagePlugin.error('测试代理延迟失败');
-  } finally {
-    proxyTestLoading.value = false;
-  }
-};
-
-// 获取代理测试建议的Alert主题
-const getProxyTestAlertTheme = () => {
-  if (!proxyTestResult.value) return 'info';
-
-  const { totalTime } = proxyTestResult.value;
-  if (totalTime < 500) return 'success';
-  if (totalTime < 1000) return 'info';
-  if (totalTime < 2000) return 'warning';
-  return 'error';
-};
-
-// 获取代理测试建议文本
-const getProxyTestSuggestion = () => {
-  if (!proxyTestResult.value) return '正在测试...';
-
-  const { totalTime } = proxyTestResult.value;
-  if (totalTime < 500) return '代理速度良好，建议使用代理';
-  if (totalTime < 1000) return '代理速度一般，可以使用代理';
-  if (totalTime < 2000) return '代理速度较慢，建议检查代理配置';
-  return '代理速度很慢，建议不使用代理';
-};
 
 // 添加 handlePull 方法
 const handlePull = () => {
@@ -1356,8 +736,6 @@ const handlePull = () => {
   pullMessage.value = '';
   pullLayers.value = [];
   pullTaskId.value = '';
-  socketConnected.value = false;
-  connectionAttempts.value = 0;
 };
 
 // 处理单个镜像更新
@@ -1395,7 +773,6 @@ const handleUpdate = async (row: any) => {
           startTime: Date.now(),
         };
         activePullTasks.value = [newTask, ...activePullTasks.value];
-        connectWebSocket(result.data.taskId);
       }
     } else {
       MessagePlugin.error(result.message || '更新镜像失败');
@@ -1454,110 +831,6 @@ const handleBatchUpdate = async () => {
     MessagePlugin.error('批量更新镜像失败');
   }
 };
-
-// ==================== 9. 创建容器处理函数 ====================
-const runContainerDialogVisible = ref(false);
-const runContainerForm = ref<any>(null);
-const currentImage = ref<any>(null);
-const runContainerFormData = ref<RunContainerFormData>({
-  name: '',
-  portMappings: '',
-  volumeMappings: '',
-  envVariables: '',
-  command: '',
-  autoRestart: false,
-  networkMode: 'bridge',
-  restartPolicy: 'no',
-  memoryLimit: '',
-  cpuLimit: '',
-  layers: [] as string[],
-});
-
-const runContainerFormRules = {
-  name: [{ required: true, message: '请输入容器名称' }],
-  networkMode: [{ required: true, message: '请选择网络模式' }],
-  restartPolicy: [{ required: true, message: '请选择重启策略' }],
-};
-
-const networkModeOptions = [
-  { label: '桥接模式', value: 'bridge' },
-  { label: '主机模式', value: 'host' },
-  { label: '无网络', value: 'none' },
-];
-
-const restartPolicyOptions = [
-  { label: '不重启', value: 'no' },
-  { label: '总是重启', value: 'always' },
-  { label: '失败时重启', value: 'on-failure' },
-  { label: '除非停止', value: 'unless-stopped' },
-];
-
-const onRunContainerConfirm = async () => {
-  try {
-    await runContainerForm.value?.validate();
-
-    // 构建创建容器的参数
-    const params = {
-      image: currentImage.value.name,
-      tag: currentImage.value.tag,
-      name: runContainerFormData.value.name,
-      portMappings: runContainerFormData.value.portMappings,
-      volumeMappings: runContainerFormData.value.volumeMappings,
-      envVariables: runContainerFormData.value.envVariables,
-      command: runContainerFormData.value.command,
-      autoRestart: runContainerFormData.value.autoRestart,
-      networkMode: runContainerFormData.value.networkMode,
-      restartPolicy: runContainerFormData.value.restartPolicy,
-      memoryLimit: runContainerFormData.value.memoryLimit,
-      cpuLimit: runContainerFormData.value.cpuLimit,
-    };
-
-    const result = await createContainer(params);
-
-    if (result.code === 0) {
-      MessagePlugin.success('容器创建成功');
-      runContainerDialogVisible.value = false;
-      // 刷新容器列表
-      // TODO: 实现容器列表刷新
-    } else {
-      MessagePlugin.error(result.message || '容器创建失败');
-    }
-  } catch (error) {
-    console.error('创建容器失败:', error);
-    MessagePlugin.error('创建容器失败');
-  }
-};
-
-interface RunContainerFormData {
-  portMappings: string;
-  volumeMappings: string;
-  envVariables: string;
-  layers: string[];
-  name: string;
-  command: string;
-  autoRestart: boolean;
-  networkMode: string;
-  restartPolicy: string;
-  memoryLimit: string;
-  cpuLimit: string;
-}
-
-interface ContainerCreateResponse {
-  code: number;
-  message: string;
-  data: any;
-}
-
-const createContainer = async (params: any): Promise<ContainerCreateResponse> => {
-  const response = await fetch('/api/containers/create', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(params),
-  });
-  return response.json();
-};
 </script>
 
 <style scoped>
@@ -1580,16 +853,6 @@ const createContainer = async (params: any): Promise<ContainerCreateResponse> =>
 .actions {
   display: flex;
   gap: 8px;
-}
-
-.registry-container {
-  padding: 16px;
-}
-
-.registry-header {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 16px;
 }
 
 .pull-progress-container {

@@ -8,6 +8,20 @@ const Api = {
   InstallStatus: '/api/app-store/install',
 };
 
+interface ApiResponse<T> {
+  code: number;
+  message: string;
+  data: T;
+}
+
+interface PageResult<T> {
+  records: T[];
+  total: number;
+  size: number;
+  current: number;
+  pages: number;
+}
+
 /**
  * 获取应用列表
  * @param params 查询参数
@@ -15,14 +29,11 @@ const Api = {
  */
 export function getAppList(params: {
   page: number;
-  pageSize: number;
+  size: number;
   search?: string;
   category?: string;
 }) {
-  return request.get<{
-    total: number;
-    list: AppStoreApp[];
-  }>({
+  return request.get<ApiResponse<PageResult<AppStoreApp>>>({
     url: Api.AppList,
     params,
   });
@@ -34,7 +45,7 @@ export function getAppList(params: {
  * @returns 应用详情信息
  */
 export function getAppDetail(id: string) {
-  return request.get<AppStoreAppDetail>({
+  return request.get<ApiResponse<AppStoreAppDetail>>({
     url: `${Api.AppDetail}/${id}`,
   });
 }
@@ -49,7 +60,7 @@ export function installApp(id: string, data: {
   selectedServices: string[];
   envValues: Record<string, string>;
 }) {
-  return request.post<{ taskId: string }>({
+  return request.post<ApiResponse<{ taskId: string }>>({
     url: `${Api.AppInstall}/${id}/install`,
     data,
   });
@@ -61,11 +72,11 @@ export function installApp(id: string, data: {
  * @returns 安装状态信息
  */
 export function getInstallStatus(taskId: string) {
-  return request.get<{
+  return request.get<ApiResponse<{
     status: 'waiting' | 'running' | 'completed' | 'failed';
     logs: AppStoreInstallLog[];
     services: AppStoreServiceStatus[];
-  }>({
+  }>>({
     url: `${Api.InstallStatus}/${taskId}/status`,
   });
 }
@@ -76,7 +87,7 @@ export function getInstallStatus(taskId: string) {
  * @returns 取消结果
  */
 export function cancelInstall(taskId: string) {
-  return request.post<{ success: boolean }>({
+  return request.post<ApiResponse<{ success: boolean }>>({
     url: `${Api.InstallStatus}/${taskId}/cancel`,
   });
 } 

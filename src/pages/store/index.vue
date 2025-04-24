@@ -1,37 +1,13 @@
 <template>
   <div class="store-container">
     <div class="store-wrapper">
-      <!-- 搜索和筛选区域 -->
-      <div class="store-header">
-        <t-input
-          v-model="searchText"
-          placeholder="搜索应用"
-          clearable
-          @enter="handleSearch"
-          class="search-input"
-        >
-          <template #prefix-icon>
-            <t-icon name="search" />
-          </template>
-        </t-input>
-        
-        <!-- 分类选择暂时注释，后期添加 -->
-        <!-- <t-select
-          v-model="category"
-          :options="categoryOptions"
-          placeholder="选择分类"
-          clearable
-          class="category-select"
-        /> -->
-      </div>
-
       <!-- 应用列表 -->
       <div class="app-list">
         <t-row :gutter="[12, 12]">
-          <t-col v-for="app in filteredApps" :key="app.id" :xs="12" :sm="8" :md="5" :lg="4" :xl="4">
+          <t-col v-for="app in apps" :key="app.id" :xs="12" :sm="8" :md="5" :lg="4" :xl="4">
             <div class="app-card" @click="handleCardClick(app)">
               <div class="app-icon-container">
-                <img :src="app.icon" class="app-icon" :alt="app.name" />
+                <img :src="app.iconUrl" class="app-icon" :alt="app.name" />
               </div>
               <div class="app-content">
                 <div class="app-header">
@@ -57,6 +33,7 @@
           :total="total"
           :page-size="pageSize"
           @change="handlePageChange"
+          :loading="loading"
         />
       </div>
     </div>
@@ -64,175 +41,65 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
+import { getAppList } from '@/api/appStore'
+import type { AppStoreApp } from '@/api/model/appStoreModel'
 
 const router = useRouter()
-
-// 搜索和筛选
-const searchText = ref('')
-// const category = ref('')
-// const categoryOptions = [
-//   { label: '媒体服务', value: 'media' },
-//   { label: '下载工具', value: 'download' },
-//   { label: '开发工具', value: 'dev' },
-//   { label: '数据库', value: 'database' },
-// ]
 
 // 分页
 const current = ref(1)
 const pageSize = ref(12)
-const total = ref(100)
+const total = ref(0)
+const loading = ref(false)
 
-// 模拟数据
-const apps = ref([
-  {
-    id: '1',
-    name: 'Transmission',
-    description: '轻量级BT下载工具，支持磁力链接和种子文件',
-    icon: 'https://pan.naspt.vip/d/naspt/emby%E5%9B%BE/MoviePoilt.jpg',
-    category: 'download',
-    version: 'latest',
-  },
-  {
-    id: '2',
-    name: 'Emby',
-    description: '功能强大的媒体服务器，支持视频、音乐和照片管理',
-    icon: 'https://pan.naspt.vip/d/naspt/emby%E5%9B%BE/MoviePoilt.jpg',
-    category: 'media',
-    version: 'latest',
-  },
-  {
-    id: '3',
-    name: 'Portainer',
-    description: 'Docker容器管理工具，提供直观的Web界面',
-    icon: 'https://pan.naspt.vip/d/naspt/emby%E5%9B%BE/MoviePoilt.jpg',
-    category: 'dev',
-    version: 'latest',
-  },
-  {
-    id: '4',
-    name: 'MySQL',
-    description: '流行的开源关系型数据库管理系统',
-    icon: 'https://pan.naspt.vip/d/naspt/emby%E5%9B%BE/MoviePoilt.jpg',
-    category: 'database',
-    version: 'latest',
-  },
-  {
-    id: '5',
-    name: 'Redis',
-    description: '高性能的键值对存储数据库',
-    icon: 'https://pan.naspt.vip/d/naspt/emby%E5%9B%BE/MoviePoilt.jpg',
-    category: 'database',
-    version: 'latest',
-  },
-  {
-    id: '6',
-    name: 'Nginx',
-    description: '高性能的Web服务器和反向代理服务器',
-    icon: 'https://pan.naspt.vip/d/naspt/emby%E5%9B%BE/MoviePoilt.jpg',
-    category: 'dev',
-    version: 'latest',
-  },
-  {
-    id: '7',
-    name: 'Jellyfin',
-    description: '开源的媒体服务器，支持视频、音乐和照片管理',
-    icon: 'https://pan.naspt.vip/d/naspt/emby%E5%9B%BE/MoviePoilt.jpg',
-    category: 'media',
-    version: 'latest',
-  },
-  {
-    id: '8',
-    name: 'qBittorrent',
-    description: '功能强大的BT下载工具，支持Web管理界面',
-    icon: 'https://pan.naspt.vip/d/naspt/emby%E5%9B%BE/MoviePoilt.jpg',
-    category: 'download',
-    version: 'latest',
-  },
-  {
-    id: '9',
-    name: 'PostgreSQL',
-    description: '功能强大的开源关系型数据库',
-    icon: 'https://pan.naspt.vip/d/naspt/emby%E5%9B%BE/MoviePoilt.jpg',
-    category: 'database',
-    version: 'latest',
-  },
-  {
-    id: '10',
-    name: 'MongoDB',
-    description: '流行的NoSQL数据库，支持文档存储',
-    icon: 'https://pan.naspt.vip/d/naspt/emby%E5%9B%BE/MoviePoilt.jpg',
-    category: 'database',
-    version: 'latest',
-  },
-  {
-    id: '11',
-    name: 'Radarr',
-    description: '自动化的电影下载和管理工具',
-    icon: 'https://pan.naspt.vip/d/naspt/emby%E5%9B%BE/MoviePoilt.jpg',
-    category: 'media',
-    version: 'latest',
-  },
-  {
-    id: '12',
-    name: 'Sonarr',
-    description: '自动化的TV剧集下载和管理工具',
-    icon: 'https://pan.naspt.vip/d/naspt/emby%E5%9B%BE/MoviePoilt.jpg',
-    category: 'media',
-    version: 'latest',
-  },
-  {
-    id: '13',
-    name: 'Lidarr',
-    description: '自动化的音乐下载和管理工具',
-    icon: 'https://pan.naspt.vip/d/naspt/emby%E5%9B%BE/MoviePoilt.jpg',
-    category: 'media',
-    version: 'latest',
-  },
-  {
-    id: '14',
-    name: 'Prowlarr',
-    description: '索引器管理工具，支持多种索引器',
-    icon: 'https://pan.naspt.vip/d/naspt/emby%E5%9B%BE/MoviePoilt.jpg',
-    category: 'media',
-    version: 'latest',
-  },
-  {
-    id: '15',
-    name: 'Bazarr',
-    description: '自动化的字幕下载和管理工具',
-    icon: 'https://pan.naspt.vip/d/naspt/emby%E5%9B%BE/MoviePoilt.jpg',
-    category: 'media',
-    version: 'latest',
+// 应用列表数据
+const apps = ref<AppStoreApp[]>([])
+
+// 获取应用列表
+const fetchAppList = async () => {
+  try {
+    loading.value = true
+    console.log('请求参数:', {
+      page: current.value,
+      size: pageSize.value
+    })
+    
+    const res = await getAppList({
+      page: current.value,
+      size: pageSize.value
+    })
+    
+    console.log('接口返回数据:', res)
+    
+    if (res.code === 0) {
+      console.log('应用列表数据:', res.data.records)
+      console.log('总数:', res.data.total)
+      apps.value = res.data.records
+      total.value = res.data.total
+    } else {
+      console.error('接口返回错误:', res.message)
+      MessagePlugin.error(res.message || '获取应用列表失败')
+    }
+  } catch (error) {
+    console.error('请求异常:', error)
+    MessagePlugin.error('获取应用列表失败')
+  } finally {
+    loading.value = false
   }
-])
-
-// 过滤应用列表
-const filteredApps = computed(() => {
-  return apps.value.filter(app => {
-    const matchSearch = app.name.toLowerCase().includes(searchText.value.toLowerCase()) ||
-                       app.description.toLowerCase().includes(searchText.value.toLowerCase())
-    // const matchCategory = !category.value || app.category === category.value
-    // return matchSearch && matchCategory
-    return matchSearch
-  })
-})
+}
 
 // 事件处理
-const handleSearch = () => {
-  // 实现搜索逻辑
-  console.log('Search:', searchText.value)
+const handlePageChange = (pageInfo: { current: number }) => {
+  console.log('页码变化:', pageInfo)
+  current.value = pageInfo.current
+  fetchAppList()
 }
 
-const handlePageChange = (page: number) => {
-  current.value = page
-  // 实现分页逻辑
-}
-
-const handleCardClick = (app: any) => {
-  router.push(`/store/detail/${app.id}`)
+const handleCardClick = (app: AppStoreApp) => {
+  router.push(`/store/install/${app.id}`);
 }
 
 // 获取分类名称
@@ -247,9 +114,15 @@ const getCategoryName = (category: string) => {
 }
 
 // 安装应用
-const handleInstall = (app: any) => {
-  router.push(`/store/detail/${app.id}`)
+const handleInstall = (app: AppStoreApp) => {
+  router.push(`/store/install/${app.id}`);
 }
+
+// 初始化
+onMounted(() => {
+  console.log('组件挂载，开始获取数据')
+  fetchAppList()
+})
 </script>
 
 <style scoped>
@@ -268,36 +141,6 @@ const handleInstall = (app: any) => {
   display: flex;
   flex-direction: column;
 }
-
-.store-header {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 24px;
-  position: relative;
-}
-
-.search-input {
-  width: 240px;
-  position: relative;
-}
-
-.search-input :deep(.t-input) {
-  border-radius: 20px;
-  padding-right: 40px;
-}
-
-.search-input :deep(.t-input__prefix) {
-  left: 12px;
-}
-
-.search-input :deep(.t-input__suffix) {
-  right: 12px;
-}
-
-/* 分类选择暂时注释，后期添加 */
-/* .category-select {
-  width: 180px;
-} */
 
 .app-list {
   flex: 1;
@@ -419,14 +262,6 @@ const handleInstall = (app: any) => {
 
   .store-wrapper {
     padding: 16px;
-  }
-
-  .store-header {
-    margin-bottom: 16px;
-  }
-
-  .search-input {
-    width: 100%;
   }
 
   .app-icon-container {

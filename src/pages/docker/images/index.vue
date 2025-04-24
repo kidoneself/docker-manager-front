@@ -31,8 +31,6 @@
       </div>
     </div>
 
-
-
     <!-- 添加正在拉取的镜像列表 -->
     <div v-if="activePullTasks.length > 0" class="pulling-images-section">
       <div class="section-title">正在拉取的镜像</div>

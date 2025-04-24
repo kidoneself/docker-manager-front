@@ -183,7 +183,6 @@ export default [
     meta: {
       title: '应用商店',
       icon: 'app',
-      hidden: true,
     },
     children: [
       {
@@ -192,7 +191,6 @@ export default [
         component: () => import('@/pages/store/index.vue'),
         meta: {
           title: '应用商店',
-          hidden: true,
         },
       },
       {

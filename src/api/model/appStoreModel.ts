@@ -14,6 +14,9 @@ export interface AppStoreApp {
   category: string;
   /** 应用版本 */
   version: string;
+  iconUrl: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -53,9 +56,10 @@ export interface AppStoreEnvField {
  */
 export interface AppStoreAppDetail extends AppStoreApp {
   /** 包含的服务列表 */
-  services: AppStoreService[];
+  services: ServiceConfig[];
   /** 环境变量配置项列表 */
   envFields: AppStoreEnvField[];
+  parameters: ParameterConfig[];
 }
 
 /**
@@ -77,7 +81,35 @@ export interface AppStoreServiceStatus {
   /** 服务名称 */
   name: string;
   /** 安装状态：等待安装/安装中/已完成/失败 */
-  status: '等待安装' | '安装中' | '已完成' | '失败';
+  status: 'waiting' | 'running' | 'completed' | 'failed';
   /** 安装进度(0-100) */
   progress: number;
+  message?: string;
+}
+
+export interface ServiceConfig {
+  id: string;
+  name: string;
+  template: ServiceTemplate;
+}
+
+export interface ServiceTemplate {
+  Image: string;
+  Env: string[];
+  ExposedPorts: Record<string, any>;
+  HostConfig: HostConfig;
+}
+
+export interface HostConfig {
+  PortBindings: Record<string, string>;
+  Binds: string[];
+  RestartPolicy: string;
+  Privileged: boolean;
+  NetworkMode: string;
+}
+
+export interface ParameterConfig {
+  key: string;
+  name: string;
+  value: string;
 } 

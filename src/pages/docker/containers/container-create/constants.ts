@@ -1,10 +1,17 @@
 import {FormRule} from 'tdesign-vue-next';
 
+// 添加校验结果类型
+export interface ValidationResult {
+    valid: boolean;
+    message: string;
+}
+
 // 端口映射类型
 export interface PortMapping {
     hostPort: string;
     containerPort: string;
     protocol: string;
+    validationResult?: ValidationResult;
 }
 
 // 卷映射类型
@@ -13,6 +20,7 @@ export interface VolumeMapping {
     containerPath: string;
     mode: string;
     isDefaultVolume?: boolean; // 标记是否为镜像默认卷
+    validationResult?: ValidationResult;
 }
 
 // 环境变量类型
@@ -148,7 +156,7 @@ export const FORM_RULES: Record<string, FormRule[]> = {
 export const INITIAL_DATA1 = {
     imageName: '',
     containerName: '',
-    restartPolicy: '',
+    restartPolicy: 'always',
     workingDir: '',
     user: '',
     command: '',
@@ -169,9 +177,9 @@ export const INITIAL_DATA3 = {
 
 // 第四步表单初始数据：高级配置
 export const INITIAL_DATA4 = {
-    environmentVariables: [] as EnvironmentVariable[],
-    // memoryLimit: 0,
-    // cpuLimit: 0,
+    environmentVariables: [] as { key: string; value: string }[],
+    memoryLimit: '',
+    cpuLimit: '',
     privileged: false,
 };
 

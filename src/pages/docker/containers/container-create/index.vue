@@ -157,6 +157,9 @@
                   </template>
                 </t-button>
               </t-space>
+              <div v-if="port.validationResult" :class="['validation-result', port.validationResult.valid ? 'valid' : 'invalid']">
+                {{ port.validationResult.message }}
+              </div>
             </div>
             <t-button theme="default" variant="dashed" :disabled="disablePortMappings" @click="addPort">
               <template #icon>
@@ -206,6 +209,9 @@
                   </template>
                 </t-button>
               </t-space>
+              <div v-if="volume.validationResult" :class="['validation-result', volume.validationResult.valid ? 'valid' : 'invalid']">
+                {{ volume.validationResult.message }}
+              </div>
             </div>
             <t-button theme="default" variant="dashed" @click="addVolume">
               <template #icon>
@@ -301,10 +307,11 @@ export default {
 <script lang="ts" setup>
 import type { SelectOption, SelectValue, SelectValueChangeTrigger } from 'tdesign-vue-next';
 import { MessagePlugin, SubmitContext } from 'tdesign-vue-next';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { createContainer, getImageDetail, getImageList, getNetworkList } from '@/api/container';
+import { dockerWebSocketService } from '@/api/websocket/dockerWebSocket';
 import router from '@/router';
 
 import {
@@ -316,6 +323,29 @@ import {
   mapFormDataToRequest,
   RESTART_POLICY_OPTIONS,
 } from '@/pages/docker/containers/container-create/constants';
+
+// 添加校验结果类型
+interface ValidationResult {
+  valid: boolean;
+  message: string;
+}
+
+// 修改端口映射类型
+interface PortMapping {
+  hostPort: string;
+  containerPort: string;
+  protocol: string;
+  validationResult?: ValidationResult;
+}
+
+// 修改卷映射类型
+interface VolumeMapping {
+  hostPath: string;
+  containerPath: string;
+  mode: string;
+  isDefaultVolume?: boolean;
+  validationResult?: ValidationResult;
+}
 
 const formData1 = ref({ ...INITIAL_DATA1 });
 const formData2 = ref({ ...INITIAL_DATA2 });
@@ -598,6 +628,36 @@ const complete = () => {
   router.replace({ path: '/docker/containers' });
 };
 
+// 添加 WebSocket 消息处理
+const handleValidationResult = (result: any) => {
+  if (result.type === 'port') {
+    const portMapping = formData2.value.portMappings.find(p => p.hostPort === result.port.toString());
+    if (portMapping) {
+      portMapping.validationResult = {
+        valid: result.valid,
+        message: result.message
+      };
+    }
+  } else if (result.type === 'path') {
+    const volumeMapping = formData3.value.volumeMappings.find(v => v.hostPath === result.path);
+    if (volumeMapping) {
+      volumeMapping.validationResult = {
+        valid: result.valid,
+        message: result.message
+      };
+    }
+  }
+};
+
+// 注册 WebSocket 消息处理器
+onMounted(() => {
+  dockerWebSocketService.on('INSTALL_VALIDATE_RESULT', handleValidationResult);
+});
+
+onUnmounted(() => {
+  dockerWebSocketService.off('INSTALL_VALIDATE_RESULT', handleValidationResult);
+});
+
 onMounted(async () => {
   if (hasImageParams.value) {
     // 如果有镜像参数，直接设置镜像并获取详情
@@ -606,7 +666,7 @@ onMounted(async () => {
     await handleImageChange(imageName, {
       option: undefined,
       selectedOptions: [],
-      trigger: 'manual'
+      trigger: 'click' as SelectValueChangeTrigger
     });
   } else {
     // 否则加载镜像列表
@@ -652,8 +712,8 @@ onMounted(async () => {
         const [key, value] = env.split('=');
         return { key, value };
       }),
-      // memoryLimit: containerInfo.value.memory_limit || '',
-      // cpuLimit: containerInfo.value.cpu_limit || '',
+      memoryLimit: '',
+      cpuLimit: '',
       privileged: containerInfo.value.privileged || false,
     };
   }
@@ -662,4 +722,29 @@ onMounted(async () => {
 
 <style lang="less" scoped>
 @import './index.less';
+
+.port-mapping,
+.volume-mapping {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.validation-result {
+  margin-top: 4px;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  
+  &.valid {
+    color: #52c41a;
+    background-color: #f6ffed;
+    border: 1px solid #b7eb8f;
+  }
+  
+  &.invalid {
+    color: #ff4d4f;
+    background-color: #fff2f0;
+    border: 1px solid #ffccc7;
+  }
+}
 </style>

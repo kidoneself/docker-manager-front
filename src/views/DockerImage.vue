@@ -1,41 +1,86 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { registerHandlers, removeHandlers, pullImage, progress, status, error } from '@/api/websocket';
+import { dockerWebSocketService } from '@/api/websocket/dockerWebSocket';
+
+interface WebSocketMessage {
+  type: string;
+  data: {
+    progress?: number;
+    status?: string;
+    [key: string]: any;
+  };
+}
 
 const imageName = ref('');
+const isPulling = ref(false);
+const pullProgress = ref(0);
+const pullStatus = ref('');
+const pullError = ref('');
 
-// 组件挂载时注册消息处理器
-onMounted(() => {
-    registerHandlers();
-});
+// 注册消息处理器
+const registerHandlers = () => {
+  dockerWebSocketService.on('PULL_PROGRESS', (message: WebSocketMessage) => {
+    const { progress } = message.data;
+    pullProgress.value = progress || 0;
+  });
 
-// 组件卸载时移除消息处理器
-onUnmounted(() => {
-    removeHandlers();
-});
+  dockerWebSocketService.on('PULL_COMPLETE', (message: WebSocketMessage) => {
+    const { status } = message.data;
+    pullStatus.value = status || '';
+    isPulling.value = false;
+  });
+
+  dockerWebSocketService.on('ERROR', (message: WebSocketMessage) => {
+    pullError.value = message.data.toString();
+    isPulling.value = false;
+  });
+};
+
+// 移除消息处理器
+const removeHandlers = () => {
+  dockerWebSocketService.off('PULL_PROGRESS', () => {});
+  dockerWebSocketService.off('PULL_COMPLETE', () => {});
+  dockerWebSocketService.off('ERROR', () => {});
+};
 
 // 拉取镜像
-const handlePullImage = () => {
-    if (imageName.value) {
-        pullImage(imageName.value);
-    }
+const pullImage = () => {
+  if (!imageName.value) return;
+  
+  isPulling.value = true;
+  pullProgress.value = 0;
+  pullStatus.value = '';
+  pullError.value = '';
+  
+  dockerWebSocketService.send({
+    type: 'PULL_IMAGE',
+    data: { imageName: imageName.value }
+  });
 };
+
+onMounted(() => {
+  registerHandlers();
+});
+
+onUnmounted(() => {
+  removeHandlers();
+});
 </script>
 
 <template>
     <div class="docker-image">
         <div class="operation-panel">
             <input v-model="imageName" placeholder="输入镜像名称" />
-            <button @click="handlePullImage">拉取镜像</button>
+            <button @click="pullImage">拉取镜像</button>
         </div>
         
         <div class="status-panel">
-            <div class="status">状态: {{ status }}</div>
+            <div class="status">状态: {{ pullStatus }}</div>
             <div class="progress">
-                <div class="progress-bar" :style="{ width: progress + '%' }"></div>
-                <span>{{ progress }}%</span>
+                <div class="progress-bar" :style="{ width: pullProgress + '%' }"></div>
+                <span>{{ pullProgress }}%</span>
             </div>
-            <div v-if="error" class="error">{{ error }}</div>
+            <div v-if="pullError" class="error">{{ pullError }}</div>
         </div>
     </div>
 </template>

@@ -31,6 +31,32 @@
                   <div class="image-info">
                     <span class="service-name">{{ service.name }}</span>
                     <t-tag theme="primary" variant="light" size="small">{{ service.template.Image }}</t-tag>
+                    <t-tag 
+                      :theme="imageCheckStatus[service.template.Image] ? 'success' : 'warning'"
+                      variant="light" 
+                      size="small"
+                    >
+                      {{ imageCheckStatus[service.template.Image] ? '已存在' : '未存在' }}
+                    </t-tag>
+                    <template v-if="!imageCheckStatus[service.template.Image]">
+                      <t-button
+                        v-if="!imagePullStates[service.template.Image]?.status"
+                        theme="primary"
+                        size="small"
+                        :disabled="isAnyImagePulling"
+                        @click="pullImage(service.template.Image)"
+                      >
+                        拉取
+                      </t-button>
+                      <div v-else class="pull-progress">
+                        <t-progress
+                          :percentage="imagePullStates[service.template.Image]?.progress || 0"
+                          :label="false"
+                          size="small"
+                        />
+                        <span class="progress-text">{{ imagePullStates[service.template.Image]?.progress || 0 }}%</span>
+                      </div>
+                    </template>
                   </div>
                 </div>
               </div>
@@ -48,31 +74,52 @@
                     :placeholder="param.value"
                     class="parameter-input"
                   />
+                  <!-- 显示校验结果 -->
+                  <div v-if="validationResults[`${param.key}`]" class="validation-result">
+                    <t-tag
+                      :theme="validationResults[`${param.key}`].valid ? 'success' : 'danger'"
+                      variant="light"
+                      size="small"
+                    >
+                      {{ validationResults[`${param.key}`].message }}
+                    </t-tag>
+                  </div>
                 </div>
               </div>
 
               <!-- 操作按钮 -->
               <div class="action-buttons">
-                <t-space>
+                <t-space size="large">
                   <t-button
-                    theme="primary"
+                    theme="default"
+                    size="large"
                     :loading="isValidating"
                     :disabled="isValidating"
-                    @click="handleValidate"
+                    @click="validateParams"
                   >
                     校验参数
                   </t-button>
                   <t-button
+                    v-if="!isInstalling && !isInstallComplete"
                     theme="primary"
-                    :loading="isInstalling"
-                    :disabled="isInstalling || !isValidated"
+                    size="large"
+                    :disabled="!isValidated"
                     @click="handleInstall"
                   >
                     开始安装
                   </t-button>
                   <t-button
-                    variant="text"
-                    :disabled="isInstalling"
+                    v-else-if="!showLogDialog"
+                    theme="primary"
+                    size="large"
+                    @click="reopenLogDialog"
+                  >
+                    {{ isInstallComplete ? '查看结果' : '查看日志' }}
+                  </t-button>
+                  <t-button
+                    v-if="!isInstalling && !isInstallComplete"
+                    theme="default"
+                    size="large"
                     @click="handleCancel"
                   >
                     取消
@@ -109,27 +156,41 @@
         />
       </div>
 
-      <!-- 安装日志 -->
-      <div v-if="isInstalling" class="install-log">
-        <h3 class="section-title">安装日志</h3>
-        <div class="log-content">
+      <!-- 安装日志弹出框 -->
+      <t-dialog
+        v-model:visible="showLogDialog"
+        :header="'安装日志'"
+        :footer="isInstallComplete"
+        :close-on-overlay-click="!isInstalling"
+        :close-on-esc-keydown="!isInstalling"
+        width="800px"
+        class="install-log-dialog"
+      >
+        <div class="log-content" ref="logContentRef">
           <div v-for="(log, index) in installLogs" :key="index" class="log-item">
-            <t-icon :name="getLogIcon(log.type)" class="log-icon" />
+            <t-icon :name="getLogIcon(log.type)" :class="['log-icon', log.type]" />
             <span class="log-message">{{ log.message }}</span>
             <span class="log-time">{{ log.time }}</span>
           </div>
         </div>
-      </div>
+        <template #footer>
+          <t-space>
+            <t-button theme="primary" @click="handleConfirm">确定</t-button>
+          </t-space>
+        </template>
+      </t-dialog>
     </t-card>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { getAppDetail } from '@/api/appStore';
 import type { AppStoreAppDetail, ParameterConfig } from '@/api/model/appStoreModel';
+import { dockerWebSocketService } from '@/api/websocket/dockerWebSocket';
+import type { WebSocketMessage } from '@/api/websocket';
 
 const route = useRoute();
 const router = useRouter();
@@ -146,13 +207,11 @@ const isInstalling = ref(false);
 const isValidating = ref(false);
 
 // 安装日志
-const installLogs = ref([
-  {
-    type: 'info',
-    message: '开始准备安装环境...',
-    time: new Date().toLocaleTimeString(),
-  },
-]);
+const installLogs = ref<Array<{
+  type: 'info' | 'success' | 'warning' | 'error';
+  message: string;
+  time: string;
+}>>([]);
 
 // 服务状态
 const serviceStatus = ref([
@@ -181,6 +240,31 @@ const rules = {
   // 动态生成校验规则
 };
 
+// 镜像检查状态
+const imageCheckStatus = ref<Record<string, boolean>>({});
+const isCheckingImages = ref(false);
+
+// 镜像拉取状态
+interface ImagePullState {
+    status: boolean;      // 是否正在拉取
+    progress: number;     // 拉取进度
+    taskId: string | null; // 任务ID
+}
+
+const imagePullStates = ref<Record<string, ImagePullState>>({});
+const isAnyImagePulling = ref(false); // 是否有镜像正在拉取
+
+// 初始化镜像状态
+const initImageState = (imageName: string) => {
+    if (!imagePullStates.value[imageName]) {
+        imagePullStates.value[imageName] = {
+            status: false,
+            progress: 0,
+            taskId: null
+        };
+    }
+};
+
 // 获取应用详情
 const fetchAppDetail = async () => {
   try {
@@ -204,101 +288,175 @@ const fetchAppDetail = async () => {
   }
 };
 
+// 参数校验状态
+const validationResults = ref<Record<string, { valid: boolean; message: string }>>({});
+
 // 校验参数
-const handleValidate = async () => {
-  isValidating.value = true;
-  try {
-    const res = await fetch(`/api/app-store/validate/${route.params.id}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(formData.value),
+const validateParams = () => {
+    if (!appDetail.value?.services) return;
+    
+    isValidating.value = true;
+    validationResults.value = {};
+    
+    // 收集需要校验的端口和路径
+    const ports: { hostPort: number }[] = [];
+    const paths: { hostPath: string }[] = [];
+    
+    // 遍历参数配置
+    appDetail.value.parameters.forEach(param => {
+        const value = formData.value[param.key];
+        if (!value) return;
+        
+        // 检查是否是端口参数
+        if (param.key.toLowerCase().includes('port')) {
+            const port = parseInt(value);
+            if (!isNaN(port)) {
+                ports.push({ hostPort: port });
+            }
+        }
+        
+        // 检查是否是路径参数
+        if (param.key.toLowerCase().includes('path') || param.key.toLowerCase().includes('dir')) {
+            paths.push({ hostPath: value });
+        }
     });
     
-    const data = await res.json();
-    validationResult.value = {
-      success: data.success,
-      message: data.message,
-    };
+    // 注册校验结果处理器
+    dockerWebSocketService.on('INSTALL_VALIDATE_RESULT', (message: WebSocketMessage) => {
+        const results = message.data as Array<{ type: string; valid: boolean; message: string; port?: number; path?: string }>;
+        results.forEach(result => {
+            const key = result.type === 'port' ? `port_${result.port}` : `path_${result.path}`;
+            validationResults.value[key] = {
+                valid: result.valid,
+                message: result.message
+            };
+        });
+        isValidating.value = false;
+        
+        // 检查是否所有参数都验证通过
+        const allValid = results.every(result => result.valid);
+        isValidated.value = allValid;
+        
+        if (allValid) {
+            MessagePlugin.success('参数校验通过');
+        } else {
+            MessagePlugin.warning('参数校验未通过，请检查参数配置');
+        }
+    });
     
-    if (data.success) {
-      isValidated.value = true;
-      MessagePlugin.success('参数校验通过');
-    } else {
-      isValidated.value = false;
-      MessagePlugin.error('参数校验失败');
-    }
-  } catch (error) {
-    validationResult.value = {
-      success: false,
-      message: '参数校验失败',
-    };
-    isValidated.value = false;
-    MessagePlugin.error('参数校验失败');
-  } finally {
-    isValidating.value = false;
+    // 发送校验请求
+    dockerWebSocketService.validateParams({ ports, paths });
+};
+
+// 添加弹出框控制
+const showLogDialog = ref(false);
+
+// 添加日志容器引用
+const logContentRef = ref<HTMLElement | null>(null);
+
+// 滚动到底部的函数
+const scrollToBottom = async () => {
+  await nextTick();
+  if (logContentRef.value) {
+    logContentRef.value.scrollTop = logContentRef.value.scrollHeight;
   }
+};
+
+// 修改日志添加逻辑
+const addLog = (type: 'info' | 'success' | 'warning' | 'error', message: string) => {
+  installLogs.value.push({
+    type,
+    message,
+    time: new Date().toLocaleTimeString()
+  });
+  scrollToBottom();
+};
+
+// 修改安装日志处理器
+dockerWebSocketService.on('INSTALL_LOG', (message: WebSocketMessage) => {
+  const { type, message: logMessage } = message.data as {
+    type: 'info' | 'success' | 'warning' | 'error';
+    message: string;
+  };
+  addLog(type, logMessage);
+});
+
+// 添加安装完成状态
+const isInstallComplete = ref(false);
+
+// 重新打开日志框
+const reopenLogDialog = () => {
+  showLogDialog.value = true;
+};
+
+// 处理安装完成
+const handleInstallComplete = () => {
+  isInstallComplete.value = true;
+  isInstalling.value = false;
+};
+
+// 处理确定按钮点击
+const handleConfirm = () => {
+  router.push('/docker/containers');
 };
 
 // 开始安装
 const handleInstall = async () => {
   isInstalling.value = true;
+  showLogDialog.value = true; // 显示日志弹出框
+  installLogs.value = [{
+    type: 'info',
+    message: '开始安装...',
+    time: new Date().toLocaleTimeString()
+  }];
+
   try {
-    const res = await fetch(`/api/app-store/install/${route.params.id}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(formData.value),
+    // 发送安装请求
+    dockerWebSocketService.send({
+      type: 'INSTALL_START',
+      data: {
+        appId: route.params.id,
+        params: formData.value
+      }
     });
-    
-    if (res.ok) {
-      MessagePlugin.success('开始安装...');
-      // 模拟安装进度
-      simulateInstallation();
-    } else {
-      const data = await res.json();
-      MessagePlugin.error(data.message || '安装失败');
-    }
+
+    // 注册安装日志处理器
+    dockerWebSocketService.on('INSTALL_LOG', (message: WebSocketMessage) => {
+      const { type, message: logMessage } = message.data as {
+        type: 'info' | 'success' | 'warning' | 'error';
+        message: string;
+      };
+      
+      addLog(type, logMessage);
+    });
+
+    // 注册安装结果处理器
+    dockerWebSocketService.on('INSTALL_START_RESULT', (message: WebSocketMessage) => {
+      const { success, message: resultMessage, template } = message.data as {
+        success: boolean;
+        message: string;
+        template: any;
+      };
+
+      if (success) {
+        addLog('success', '模板处理成功');
+        console.log('处理后的模板:', template);
+        handleInstallComplete();
+      } else {
+        addLog('error', resultMessage || '安装失败');
+        isInstalling.value = false;
+      }
+    });
+
   } catch (error) {
-    MessagePlugin.error('安装失败');
-  } finally {
+    addLog('error', '安装失败');
     isInstalling.value = false;
   }
 };
 
-// 模拟安装进度
-const simulateInstallation = () => {
-  const steps = ['准备安装', '拉取镜像', '创建容器', '启动服务', '完成'];
-  let currentIndex = 0;
-  
-  const interval = setInterval(() => {
-    if (currentIndex < steps.length) {
-      currentStep.value = currentIndex;
-      installLogs.value.push({
-        type: 'info',
-        message: `正在${steps[currentIndex]}...`,
-        time: new Date().toLocaleTimeString(),
-      });
-      currentIndex++;
-    } else {
-      clearInterval(interval);
-      installLogs.value.push({
-        type: 'success',
-        message: '安装完成',
-        time: new Date().toLocaleTimeString(),
-      });
-      MessagePlugin.success('安装完成');
-      setTimeout(() => {
-        router.push('/store');
-      }, 2000);
-    }
-  }, 2000);
-};
-
 // 取消安装
 const handleCancel = () => {
+  // 只返回上一页，不进行其他操作
   router.back();
 };
 
@@ -324,8 +482,134 @@ const getLogIcon = (type: string) => {
 //   return themes[status] || 'default';
 // };
 
+// 检查镜像是否存在
+const checkImages = () => {
+    if (!appDetail.value?.services) return;
+    
+    isCheckingImages.value = true;
+    const images = appDetail.value.services.map(service => ({
+        name: service.template.Image.split(':')[0],
+        tag: service.template.Image.split(':')[1] || 'latest'
+    }));
+    
+    // 注册消息处理器
+    dockerWebSocketService.on('INSTALL_CHECK_IMAGES_RESULT', (message: WebSocketMessage) => {
+        const results = message.data as Array<{ name: string; tag: string; exists: boolean }>;
+        results.forEach(result => {
+            const key = `${result.name}:${result.tag}`;
+            imageCheckStatus.value[key] = result.exists;
+        });
+        isCheckingImages.value = false;
+    });
+    
+    // 发送检查请求
+    dockerWebSocketService.checkImages(images);
+};
+
+// 拉取镜像
+const pullImage = (imageName: string) => {
+    // 如果有其他镜像正在拉取，直接返回
+    if (isAnyImagePulling.value) {
+        MessagePlugin.warning('请等待当前镜像拉取完成后再操作');
+        return;
+    }
+    
+    // 初始化状态
+    initImageState(imageName);
+    
+    // 如果已经在拉取中，直接返回
+    if (imagePullStates.value[imageName].status) {
+        return;
+    }
+    
+    // 更新状态
+    isAnyImagePulling.value = true;
+    imagePullStates.value[imageName] = {
+        status: true,
+        progress: 0,
+        taskId: null
+    };
+    
+    // 创建唯一的处理器函数
+    const progressHandler = (message: WebSocketMessage) => {
+        const { taskId, data } = message;
+        // 检查是否是当前镜像的任务
+        if (imagePullStates.value[imageName].taskId !== taskId) {
+            return;
+        }
+        const { progress, status } = data as { progress: number; status: string };
+        // 更新进度
+        imagePullStates.value[imageName].progress = progress;
+        console.log(`镜像 ${imageName} (任务ID: ${taskId}) 拉取进度: ${progress}%, 状态: ${status}`);
+    };
+    
+    const completeHandler = (message: WebSocketMessage) => {
+        const { taskId, data } = message;
+        // 检查是否是当前镜像的任务
+        if (imagePullStates.value[imageName].taskId !== taskId) {
+            return;
+        }
+        const { status } = data as { status: string };
+        if (status === 'success') {
+            imagePullStates.value[imageName] = {
+                status: false,
+                progress: 100,
+                taskId: null
+            };
+            isAnyImagePulling.value = false;
+            MessagePlugin.success(`镜像 ${imageName} 拉取成功`);
+            // 刷新镜像状态
+            setTimeout(() => {
+                checkImages();
+            }, 1000); // 延迟1秒后刷新状态，确保后端处理完成
+        }
+    };
+    
+    const errorHandler = (message: WebSocketMessage) => {
+        const { taskId, data } = message;
+        // 检查是否是当前镜像的任务
+        if (imagePullStates.value[imageName].taskId !== taskId) {
+            return;
+        }
+        imagePullStates.value[imageName] = {
+            status: false,
+            progress: 0,
+            taskId: null
+        };
+        isAnyImagePulling.value = false;
+        MessagePlugin.error(`镜像 ${imageName} 拉取失败: ${data}`);
+    };
+    
+    // 注册处理器
+    dockerWebSocketService.on('PULL_PROGRESS', progressHandler);
+    dockerWebSocketService.on('PULL_COMPLETE', completeHandler);
+    dockerWebSocketService.on('ERROR', errorHandler);
+    
+    // 发送拉取请求
+    dockerWebSocketService.send({
+        type: 'PULL_IMAGE',
+        data: { imageName }
+    }).then((response: WebSocketMessage) => {
+        // 保存任务ID
+        if (response.taskId) {
+            imagePullStates.value[imageName].taskId = response.taskId;
+            console.log(`镜像 ${imageName} 开始拉取，任务ID: ${response.taskId}`);
+        }
+    });
+    
+    // 在组件卸载时清理这些特定的处理器
+    onUnmounted(() => {
+        dockerWebSocketService.off('PULL_PROGRESS', progressHandler);
+        dockerWebSocketService.off('PULL_COMPLETE', completeHandler);
+        dockerWebSocketService.off('ERROR', errorHandler);
+    });
+};
+
+// 在组件挂载时检查镜像
 onMounted(() => {
-  fetchAppDetail();
+    fetchAppDetail().then(() => {
+        checkImages();
+    });
 });
 </script>
 
@@ -437,6 +721,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  position: relative;
 }
 
 .parameter-header {
@@ -472,34 +757,45 @@ onMounted(() => {
   border-top: 1px solid var(--td-component-stroke);
 }
 
-.validation-result {
-  margin: 0;
+.action-buttons :deep(.t-button) {
+  min-width: 120px;
+  height: 40px;
+  font-size: 14px;
+  border-radius: 4px;
 }
 
-.install-log {
-  background-color: var(--td-bg-color-container);
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: var(--td-shadow-1);
+.action-buttons :deep(.t-space) {
+  gap: 16px;
+}
+
+.validation-result {
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.install-log-dialog :deep(.t-dialog__body) {
+  padding: 0;
+}
+
+.install-log-dialog :deep(.t-dialog__header) {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--td-component-stroke);
 }
 
 .log-content {
-  max-height: 200px;
+  max-height: 500px;
   overflow-y: auto;
   padding: 16px;
   background-color: var(--td-bg-color-secondarycontainer);
-  border-radius: 4px;
+  font-family: monospace;
 }
 
 .log-item {
   display: flex;
   align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--td-component-stroke);
-}
-
-.log-item:last-child {
-  border-bottom: none;
+  padding: 4px 0;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .log-icon {
@@ -507,29 +803,44 @@ onMounted(() => {
   font-size: 16px;
 }
 
+.log-icon.info {
+  color: var(--td-brand-color);
+}
+
+.log-icon.success {
+  color: var(--td-success-color);
+}
+
+.log-icon.warning {
+  color: var(--td-warning-color);
+}
+
+.log-icon.error {
+  color: var(--td-error-color);
+}
+
 .log-message {
   flex: 1;
-  font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .log-time {
   color: var(--td-text-color-secondary);
   font-size: 12px;
+  margin-left: 16px;
 }
 
 /* 自定义滚动条样式 */
-.status-list::-webkit-scrollbar,
 .log-content::-webkit-scrollbar {
   width: 6px;
 }
 
-.status-list::-webkit-scrollbar-thumb,
 .log-content::-webkit-scrollbar-thumb {
   background-color: var(--td-text-color-disabled);
   border-radius: 3px;
 }
 
-.status-list::-webkit-scrollbar-track,
 .log-content::-webkit-scrollbar-track {
   background-color: transparent;
 }
@@ -602,5 +913,26 @@ onMounted(() => {
 .service-name {
   font-weight: 500;
   color: var(--td-text-color-primary);
+}
+
+.t-tag {
+  margin-left: 8px;
+}
+
+.t-button {
+  margin-left: 8px;
+}
+
+.pull-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+  width: 120px;
+}
+
+.progress-text {
+  font-size: 12px;
+  color: var(--td-text-color-secondary);
 }
 </style> 

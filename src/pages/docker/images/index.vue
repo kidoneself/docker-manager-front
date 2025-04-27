@@ -15,13 +15,6 @@
           </template>
           检查更新
         </t-button>
-        <t-button theme="success" @click="handleBatchUpdate">
-          <template #icon>
-            <t-icon name="refresh" />
-          </template>
-          批量更新
-        </t-button>
-
         <t-button @click="fetchImages">
           <template #icon>
             <t-icon name="refresh" />
@@ -134,50 +127,45 @@
         <t-form-item label="版本" name="tag">
           <t-input v-model="pullImageFormData.tag" placeholder="请输入版本，例如：latest" />
         </t-form-item>
-        <t-form-item label="使用代理" name="useProxy">
-          <t-switch v-model="pullImageFormData.useProxy" />
-        </t-form-item>
+
       </t-form>
       <div v-else class="pull-progress-container">
-        <div class="progress-header">
-          <span class="image-title">正在拉取镜像: {{ pullImageFormData.image }}:{{ pullImageFormData.tag }}</span>
-          <span class="progress-percentage">{{ pullProgress }}%</span>
-        </div>
-        <t-progress :percentage="pullProgress" :status="pullStatus" :stroke-width="12" />
-        <div class="progress-info">
-          <div v-if="pullLayers.length > 0" class="layers-info">
-            <div
-              v-for="(layer, index) in pullLayers"
-              :key="index"
-              class="layer-item"
-              :class="{
-                'layer-completed': isLayerCompleted(layer),
-                'layer-in-progress': !isLayerCompleted(layer),
-              }"
-            >
-              <div class="layer-header">
-                <span class="layer-id">{{ layer.id?.slice(0, 12) }}</span>
-                <t-progress
-                  v-if="getLayerProgress(layer) > 0"
-                  theme="plump"
-                  :percentage="getLayerProgress(layer)"
-                  :stroke-width="6"
-                  :show-label="false"
-                  class="layer-progress-bar"
-                />
-              </div>
-              <div class="layer-content">
-                <span class="layer-status">{{ layer.status }}</span>
-                <span v-if="layer.progress" class="layer-progress">{{ formatLayerProgress(layer.progress) }}</span>
+        <div class="space-y-4">
+          <t-progress
+            :percentage="pullProgress"
+            theme="plump"
+            label="inside"
+          />
+          
+          <div class="text-sm text-gray-600">
+            当前阶段：{{ currentStage }}
+          </div>
+
+          <t-scrollbar style="height: 120px;">
+            <div class="text-xs text-gray-400">
+              <div v-for="(log, index) in logLines" :key="index" class="log-line">
+                {{ log }}
               </div>
             </div>
+          </t-scrollbar>
+
+          <div class="text-right mt-4">
+            <t-button
+              v-if="!completed"
+              theme="default"
+              variant="outline"
+              @click="handleCancelPull"
+            >
+              取消拉取
+            </t-button>
+            <t-button
+              v-else
+              theme="primary"
+              @click="closePullDialog"
+            >
+              关闭
+            </t-button>
           </div>
-          <div v-else class="progress-message">
-            {{ pullMessage || '准备开始拉取...' }}
-          </div>
-        </div>
-        <div class="progress-actions">
-          <t-button theme="danger" @click="handleCancelPull">取消拉取</t-button>
         </div>
       </div>
     </t-dialog>
@@ -265,7 +253,7 @@ import {
   checkImageUpdates,
   deleteImage,
   getImageList,
-  testProxyLatency,
+  // testProxyLatency,
   updateImage,
 } from '@/api/container';
 
@@ -278,7 +266,7 @@ const columns = [
   { colKey: 'Id', title: '镜像ID', width: 120 },
   { colKey: 'name', title: '镜像名称', width: 220 },
   { colKey: 'tag', title: '标签', width: 100 },
-  { colKey: 'created', title: '创建时间', width: 160 },
+  { colKey: 'created', title: '当前版本时间', width: 160 },
   { colKey: 'lastChecked', title: '上次检查', width: 140 },
   { colKey: 'needUpdate', title: '更新状态', width: 100 },
   { colKey: 'operation', title: '操作', width: 200 },
@@ -322,9 +310,12 @@ const fetchImages = async () => {
         }
         return {
           ...img,
-          Id: imageId.replace('sha256:', '').slice(0, 12),
+          Id: imageId.replace('sha256:', '').slice(0, 8),
           name: img.name || '未命名镜像',
           tag: img.tag || 'latest',
+          created: img.localCreateTime || img.created,
+          lastChecked: img.lastChecked,
+          needUpdate: img.needUpdate || false
         };
       });
     } else {
@@ -386,7 +377,6 @@ const pullImageForm = ref<any>(null);
 const pullImageFormData = ref({
   image: '',
   tag: 'latest',
-  useProxy: false,
 });
 const isPulling = ref(false);
 const pullProgress = ref(0);
@@ -404,7 +394,6 @@ interface PullTask {
   taskId: string;
   image: string;
   tag: string;
-  useProxy: boolean;
   progress: number;
   status: string;
   message: string;
@@ -477,110 +466,63 @@ const getProgressStatus = (status: string) => {
   }
 };
 
-// 修改拉取镜像确认函数
-const onPullImageConfirm = async () => {
-  try {
-    await pullImageForm.value?.validate();
-    isPulling.value = true;
-    pullProgress.value = 0;
-    pullStatus.value = 'active';
-    pullMessage.value = '准备拉取镜像...';
-
-    await dockerWebSocketAPI.pullImage(
-      {
-        imageName: `${pullImageFormData.value.image}:${pullImageFormData.value.tag}`,
-        useProxy: pullImageFormData.value.useProxy
-      },
-      {
-        onStart: (taskId) => {
-          pullTaskId.value = taskId;
-          pullMessage.value = '开始拉取镜像...';
-        },
-        onProgress: (progress) => {
-          updatePullProgress(progress);
-        },
-        onComplete: () => {
-          pullStatus.value = 'success';
-          pullMessage.value = '镜像拉取完成';
-          MessagePlugin.success('镜像拉取成功');
-          setTimeout(() => {
-            isPulling.value = false;
-            pullImageDialogVisible.value = false;
-            fetchImages();
-          }, 1500);
-        },
-        onError: (error) => {
-          pullStatus.value = 'error';
-          pullMessage.value = error;
-          MessagePlugin.error(`拉取镜像失败: ${error}`);
-          setTimeout(() => {
-            isPulling.value = false;
-            pullImageDialogVisible.value = false;
-          }, 3000);
-        }
-      }
-    );
-  } catch (error) {
-    console.error('拉取镜像出错:', error);
-    MessagePlugin.error(error instanceof Error ? error.message : '镜像拉取失败');
-    isPulling.value = false;
-    pullImageDialogVisible.value = false;
-  }
-};
+// 添加新的响应式变量
+const currentStage = ref('等待开始');
+const logLines = ref<string[]>([]);
+const completed = ref(false);
 
 // 修改更新进度函数
 const updatePullProgress = (data: PullImageProgress) => {
   if (!data) return;
 
   pullProgress.value = data.progress || 0;
-  pullMessage.value = data.status || '准备拉取镜像...';
+  if (data.status) {
+    logLines.value.push(data.status);
+  }
 
-  // 更新活动任务列表中的进度
-  const taskIndex = activePullTasks.value.findIndex((task) => task.taskId === pullTaskId.value);
-  if (taskIndex >= 0) {
-    const updatedTask = { ...activePullTasks.value[taskIndex] };
-    updatedTask.progress = data.progress || 0;
-    updatedTask.status = data.status || updatedTask.status;
-    updatedTask.message = data.status || updatedTask.message;
-
-    if (data.layers && Array.isArray(data.layers)) {
-      // 排序层，把未完成的放前面
-      const sortedLayers = [...data.layers].sort((a, b) => {
-        const aCompleted = isLayerCompleted(a);
-        const bCompleted = isLayerCompleted(b);
-        if (aCompleted && !bCompleted) return 1;
-        if (!aCompleted && bCompleted) return -1;
-        return 0;
-      });
-      updatedTask.layers = sortedLayers;
+  if (data.status) {
+    if (data.status.includes('Copying config')) {
+      currentStage.value = '复制配置层';
+    } else if (data.status.includes('Copying blob')) {
+      currentStage.value = '复制数据层';
+    } else if (data.status.includes('Writing manifest')) {
+      currentStage.value = '写入清单';
+    } else if (data.status.includes('Storing signatures')) {
+      currentStage.value = '存储签名';
+    } else if (data.status.includes('Getting image source signatures')) {
+      currentStage.value = '获取镜像签名';
     }
+  }
 
-    activePullTasks.value.splice(taskIndex, 1, updatedTask);
-
-    // 如果当前正在查看此任务的详情，也更新详情
-    if (currentTaskDetails.value && currentTaskDetails.value.taskId === pullTaskId.value) {
-      currentTaskDetails.value = { ...updatedTask };
-    }
+  if (pullProgress.value >= 100) {
+    completed.value = true;
   }
 };
 
-// 修改取消拉取方法
+// 修改关闭对话框函数
+const closePullDialog = () => {
+  pullImageDialogVisible.value = false;
+  isPulling.value = false;
+  pullProgress.value = 0;
+  currentStage.value = '等待开始';
+  logLines.value = [];
+  completed.value = false;
+};
+
+// 修改取消拉取函数
 const handleCancelPull = async () => {
   if (!pullTaskId.value) {
-    isPulling.value = false;
-    pullImageDialogVisible.value = false;
+    closePullDialog();
     return;
   }
 
   try {
     await dockerWebSocketAPI.cancelPull(pullTaskId.value);
     MessagePlugin.warning('已取消拉取镜像');
+    closePullDialog();
   } catch (error) {
     console.error('取消拉取失败:', error);
     MessagePlugin.error(error instanceof Error ? error.message : '取消拉取失败');
-  } finally {
-    isPulling.value = false;
-    pullImageDialogVisible.value = false;
   }
 };
 
@@ -740,7 +682,6 @@ const handlePull = () => {
 interface ImageUpdateParams {
   image: string;
   tag: string;
-  useProxy: boolean;
   id?: string;
   layers?: string[];
 }
@@ -750,7 +691,6 @@ const handleUpdate = async (row: any) => {
     const result = await updateImage({
       image: row.name,
       tag: row.tag,
-      useProxy: false,
       id: row.id,
       layers: [] as string[],
     } as ImageUpdateParams);
@@ -763,7 +703,6 @@ const handleUpdate = async (row: any) => {
           taskId: result.data.taskId,
           image: row.name,
           tag: row.tag,
-          useProxy: true,
           progress: 0,
           status: 'pending',
           message: '准备更新镜像...',
@@ -801,32 +740,86 @@ const handleCheckUpdates = async () => {
 };
 
 // 批量更新镜像
-const handleBatchUpdate = async () => {
+// const handleBatchUpdate = async () => {
+//   try {
+//     const result = await batchUpdateImages({
+//       useProxy: true,
+//     });
+
+//     if (result.code === 0) {
+//       if (result.data.totalCount === 0) {
+//         MessagePlugin.info('没有需要更新的镜像');
+//         return;
+//       }
+
+//       MessagePlugin.success(`批量更新已提交，共 ${result.data.totalCount} 个镜像`);
+//       // 显示详细结果
+//       // TODO: 显示批量更新结果详情
+
+//       // 刷新镜像列表
+//       setTimeout(() => {
+//         fetchImages();
+//       }, 2000);
+//     } else {
+//       MessagePlugin.error(result.message || '批量更新镜像失败');
+//     }
+//   } catch (error) {
+//     console.error('批量更新镜像失败:', error);
+//     MessagePlugin.error('批量更新镜像失败');
+//   }
+// };
+
+// 修改拉取镜像确认函数
+const onPullImageConfirm = async () => {
   try {
-    const result = await batchUpdateImages({
-      useProxy: true,
-    });
+    await pullImageForm.value?.validate();
+    isPulling.value = true;
+    pullProgress.value = 0;
+    pullStatus.value = 'active';
+    currentStage.value = '等待开始';
+    logLines.value = [];
+    completed.value = false;
 
-    if (result.code === 0) {
-      if (result.data.totalCount === 0) {
-        MessagePlugin.info('没有需要更新的镜像');
-        return;
+    await dockerWebSocketAPI.pullImage(
+      {
+        imageName: `${pullImageFormData.value.image}:${pullImageFormData.value.tag}`,
+      },
+      {
+        onStart: (taskId) => {
+          pullTaskId.value = taskId;
+          logLines.value.push('开始拉取镜像...');
+        },
+        onProgress: (progress) => {
+          updatePullProgress(progress);
+        },
+        onComplete: () => {
+          pullStatus.value = 'success';
+          logLines.value.push('镜像拉取完成');
+          completed.value = true;
+          MessagePlugin.success('镜像拉取成功');
+          setTimeout(() => {
+            isPulling.value = false;
+            pullImageDialogVisible.value = false;
+            fetchImages();
+          }, 1500);
+        },
+        onError: (error) => {
+          pullStatus.value = 'error';
+          logLines.value.push(`拉取失败: ${error}`);
+          completed.value = true;
+          MessagePlugin.error(`拉取镜像失败: ${error}`);
+          setTimeout(() => {
+            isPulling.value = false;
+            pullImageDialogVisible.value = false;
+          }, 3000);
+        }
       }
-
-      MessagePlugin.success(`批量更新已提交，共 ${result.data.totalCount} 个镜像`);
-      // 显示详细结果
-      // TODO: 显示批量更新结果详情
-
-      // 刷新镜像列表
-      setTimeout(() => {
-        fetchImages();
-      }, 2000);
-    } else {
-      MessagePlugin.error(result.message || '批量更新镜像失败');
-    }
+    );
   } catch (error) {
-    console.error('批量更新镜像失败:', error);
-    MessagePlugin.error('批量更新镜像失败');
+    console.error('拉取镜像出错:', error);
+    MessagePlugin.error(error instanceof Error ? error.message : '镜像拉取失败');
+    isPulling.value = false;
+    pullImageDialogVisible.value = false;
   }
 };
 </script>

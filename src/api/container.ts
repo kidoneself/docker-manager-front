@@ -1,6 +1,13 @@
 import { request } from '@/utils/request';
 import { CreateContainerParams } from '@/pages/docker/containers/container-create/constants';
 
+/**
+ * 类型定义
+ */
+
+/**
+ * 容器端口配置
+ */
 interface Port {
   IP: string;
   PrivatePort: number;
@@ -8,187 +15,145 @@ interface Port {
   Type: string;
 }
 
+/**
+ * 容器信息
+ */
 export interface Container {
-  Id: string;
-  Names: string[];
-  Image: string;
-  State: string;
-  Status: string;
-  Ports: Port[];
-  Created: number;
+  id: string;
+  names: string[];
+  image: string;
+  imageId: string;
+  command: string;
+  state: string;
+  status: string;
+  ports: Port[];
+  created: number;
+  labels: Record<string, string>;
+  sizeRw: number;
+  sizeRootFs: number;
+  hostConfig: {
+    networkMode: string;
+    restartPolicy: string;
+  };
+  networkSettings: {
+    ipAddress: string;
+  };
+  mounts: {
+    source: string;
+    destination: string;
+    readOnly: boolean;
+  }[];
   [key: string]: any;
 }
 
-// // 容器相关接口
-// interface ContainerListParams {
-// }
-
-// 获取容器列表
-export function getContainerList() {
-  return request
-    .get<Container[] | { data: Container[] }>({
-      url: '/containers',
-    })
-    .then((response) => {
-      if (Array.isArray(response)) {
-        return response;
-      }
-      if (response?.data) {
-        return response.data;
-      }
-      return [];
-    });
+/**
+ * 容器详情
+ */
+export interface ContainerDetail {
+  containerId: string;
+  containerName: string;
+  name: string;
+  imageId: string;
+  imageName: string;
+  createdTime: string;
+  status: string;
+  restartCount: number;
+  restartPolicyName: string;
+  restartPolicyMaxRetry: number;
+  command: string;
+  workingDir: string;
+  entrypoints: string[];
+  labels: Record<string, string>;
+  envs: string[];
+  volumes: string[];
+  ports: string[];
+  exposedPorts: string[];
+  devices: string[];
+  networkMode: string;
+  ipAddress: string;
+  state: string;
+  startedAt: string;
+  privileged: boolean;
+  capAdd: string[];
+  capDrop: string[];
+  networkSettings: {
+    IPAddress: string;
+    Gateway: string;
+    NetworkMode: string;
+  };
+  stats?: {
+    cpuPercent: number;
+    memoryUsage: number;
+    memoryLimit: number;
+    networkRx: number;
+    networkTx: number;
+    running: boolean;
+  };
+  code?: number;
+  data?: any;
 }
 
-// 创建容器
-export function createContainer(data: CreateContainerParams) {
-  return request.post({
-    url: '/containers',
-    data,
-  });
+/**
+ * 请求参数接口
+ */
+
+/**
+ * 容器日志请求参数
+ */
+interface ContainerLogsParams {
+  tail?: number;
+  follow?: boolean;
+  timestamps?: boolean;
 }
 
-// 启动容器
-export const startContainer = async (id: string) => {
-  return request.post({
-    url: `/containers/start/${id}`,
-  });
-};
-
-// 停止容器
-export const stopContainer = async (id: string) => {
-  return request.post({
-    url: `/containers/stop/${id}`,
-  });
-};
-
-// 重启容器
-export const restartContainer = async (id: string) => {
-  return request.post({
-    url: `/containers/restart/${id}`,
-  });
-};
-
-// 获取容器日志
-export const getContainerLogs = async (
-  id: string,
-  params: {
-    tail?: number;
-    follow?: boolean;
-    timestamps?: boolean;
-  } = {},
-) => {
-  return request.get({
-    url: `/containers/${id}/logs`,
-    params,
-  });
-};
-
-// 删除容器
-export function deleteContainer(id: string) {
-  return request.delete({
-    url: `/containers/${id}`,
-  });
+/**
+ * 容器更新请求参数
+ */
+interface ContainerUpdateParams {
+  [key: string]: any;
 }
 
-// 获取容器详情
-export function getContainerDetail(id: string) {
-  return request.get<Container>({
-    url: `/containers/${id}/config`,
-  });
+/**
+ * 响应接口
+ */
+
+/**
+ * 容器列表响应
+ */
+interface ContainerListResponse {
+  code: number;
+  data: Container[];
+  message: string;
 }
 
-interface ImagePullParams {
-  image: string;
-  tag?: string;
-  useProxy: boolean;
-}
-
+/**
+ * 镜像列表响应
+ */
 interface ImageListResponse {
   code: number;
   data: Array<{
     id: string; // 镜像ID
-    name: string; // 镜像名称
-    tag: string; // 标签
-    size: number; // 大小
-    created: string; // 创建时间
+    statusId: number; // 镜像状态记录ID
+    name: string; // 仓库名称
+    tag: string; // 镜像标签
+    size: number; // 镜像大小
+    created: Date; // 创建时间
+    localCreateTime: string; // 本地镜像创建时间
+    remoteCreateTime: string; // 远程镜像创建时间
     needUpdate: boolean; // 是否需要更新
-    digest?: string; // 摘要
-    remoteDigest?: string; // 远程摘要
-    lastChecked?: string; // 上次检查时间
+    lastChecked: Date; // 上次检查时间
   }>;
   message: string;
 }
 
-// 获取镜像列表
-export function getImageList() {
-  return request.get<ImageListResponse>({
-    url: '/images',
-  });
-}
-
-// 拉取镜像
-export function pullImage(data: ImagePullParams) {
-  return request.post({
-    url: '/images/pull',
-    data,
-  });
-}
-
-// 获取镜像拉取进度
-export function getImagePullProgress(id: string) {
-  return request.get({
-    url: `/images/pull/progress/${id}`,
-  });
-}
-
-// 删除镜像
-export function deleteImage(id: string) {
-  return request.delete({
-    url: `/images/${id}`,
-  });
-}
-
-// 取消镜像拉取
-export function cancelImagePull(taskId: string) {
-  return request.post({
-    url: `/images/pull/cancel/${taskId}`,
-  });
-}
-
-// 检查镜像更新
-export function checkImageUpdates() {
-  return request.post({
-    url: '/images/check-updates',
-  });
-}
-
-// 批量更新镜像
-export function batchUpdateImages(params: { useProxy: boolean }) {
-  return request.post({
-    url: '/images/batch-update',
-    params,
-  });
-}
-
-// 更新单个镜像
-export function updateImage(data: { image: string; tag: string; useProxy: boolean }) {
-  return request.post({
-    url: '/images/update',
-    data,
-  });
-}
-
-interface NetworkCreateParams {
-  name: string;
-  driver: string;
-  subnet?: string;
-}
-
-interface NetworkListRespose {
+/**
+ * 网络列表响应
+ */
+interface NetworkListResponse {
   code: number;
   data: Array<{
     Name: string;
+    nameStr: string;
     Id: string;
     Created: string;
     Scope: string;
@@ -214,164 +179,248 @@ interface NetworkListRespose {
   message: string;
 }
 
-// 获取网络列表
-export function getNetworkList() {
-  return request.get<NetworkListRespose>({
-    url: '/networks/list',
-  });
+/**
+ * 容器资源使用情况响应
+ */
+export interface ContainerStatsResponse {
+  code: number;
+  message: string;
+  data: {
+    cpuPercent: number;
+    memoryUsage: number;
+    memoryLimit: number;
+    networkRx: number;
+    networkTx: number;
+    running: boolean;
+  };
 }
 
-// 创建网络
-export function createNetwork(data: NetworkCreateParams) {
+/**
+ * API 函数
+ */
+
+/**
+ * 容器相关 API
+ */
+
+/**
+ * 获取容器列表
+ * @returns 容器列表
+ */
+export const getContainerList = async (): Promise<Container[]> => {
+  const response = await request.get<ContainerListResponse>({
+    url: '/containers',
+  });
+  return response.data || [];
+};
+
+/**
+ * 创建容器
+ * @param data 容器创建参数
+ * @returns 创建结果
+ */
+export const createContainer = async (data: CreateContainerParams): Promise<any> => {
   return request.post({
-    url: '/docker/networks',
+    url: '/containers',
     data,
   });
-}
+};
 
-// 删除网络
-export function deleteNetwork(id: string) {
-  return request.delete({
-    url: `/docker/networks/${id}`,
+/**
+ * 启动容器
+ * @param id 容器ID
+ * @returns 启动结果
+ */
+export const startContainer = async (id: string): Promise<any> => {
+  return request.post({
+    url: `/containers/start/${id}`,
   });
-}
+};
 
-// 存储卷相关接口
-interface VolumeListParams {
-  page: number;
-  pageSize: number;
-}
+/**
+ * 停止容器
+ * @param id 容器ID
+ * @returns 停止结果
+ */
+export const stopContainer = async (id: string): Promise<any> => {
+  return request.post({
+    url: `/containers/stop/${id}`,
+  });
+};
 
-interface VolumeCreateParams {
-  name: string;
-  driver?: string;
-}
+/**
+ * 重启容器
+ * @param id 容器ID
+ * @returns 重启结果
+ */
+export const restartContainer = async (id: string): Promise<any> => {
+  return request.post({
+    url: `/containers/restart/${id}`,
+  });
+};
 
-interface VolumeListResponse {
-  list: Array<{
-    name: string;
-    driver: string;
-    mountpoint: string;
-    created: string;
-  }>;
-  total: number;
-}
-
-// 获取存储卷列表
-export function getVolumeList(params: VolumeListParams) {
-  return request.get<VolumeListResponse>({
-    url: '/docker/volumes',
+/**
+ * 获取容器日志
+ * @param id 容器ID
+ * @param params 日志参数
+ * @returns 日志内容
+ */
+export const getContainerLogs = async (
+  id: string,
+  params: ContainerLogsParams = {},
+): Promise<{ data: string }> => {
+  return request.get({
+    url: `/containers/${id}/logs`,
     params,
   });
-}
+};
 
-// 创建存储卷
-export function createVolume(data: VolumeCreateParams) {
-  return request.post({
-    url: '/docker/volumes',
-    data,
-  });
-}
-
-// 删除存储卷
-export function deleteVolume(name: string) {
+/**
+ * 删除容器
+ * @param id 容器ID
+ * @returns 删除结果
+ */
+export const deleteContainer = async (id: string): Promise<any> => {
   return request.delete({
-    url: `/docker/volumes/${name}`,
+    url: `/containers/${id}`,
   });
-}
+};
 
-// 仓库相关接口
-export interface Registry {
-  registry: string;
-  username: string;
-  password: string;
-}
-
-// 获取仓库列表
-export function getRegistries() {
-  return request.get({
-    url: '/docker/registries',
+/**
+ * 获取容器详情
+ * @param id 容器ID
+ * @returns 容器详情
+ */
+export const getContainerDetail = async (id: string): Promise<ContainerDetail> => {
+  return request.get<ContainerDetail>({
+    url: `/containers/${id}/config`,
   });
-}
+};
 
-// 添加仓库
-export function addRegistry(data: Registry) {
-  return request.post({
-    url: '/docker/registries',
-    data,
-  });
-}
-
-// 删除仓库
-export function deleteRegistry(registry: string) {
-  return request.delete({
-    url: `/docker/registries/${registry}`,
-  });
-}
-
-// 登录仓库
-export function loginDockerRegistry(data: Registry) {
-  return request.post({
-    url: '/docker/login',
-    data,
-  });
-}
-
-// 登出仓库
-export function logoutDockerRegistry(registry: string) {
-  return request.post({
-    url: '/docker/logout',
-    data: { registry },
-  });
-}
-
-// 获取登录状态
-export function getLoginStatus(registry: string) {
-  return request.get({
-    url: '/docker/login/status',
-    params: { registry },
-  });
-}
-
-// Docker 登录接口
-export interface DockerLoginRequest {
-  username: string;
-  password: string;
-  serverAddress: string;
-}
-
-// Docker 登录
-export function dockerLogin(data: DockerLoginRequest) {
-  return request.post({
-    url: '/docker/auth/login',
-    data,
-  });
-}
-
-// 更新容器
-export function updateContainer(id: string, data: any) {
+/**
+ * 更新容器
+ * @param id 容器ID
+ * @param data 更新数据
+ * @returns 更新结果
+ */
+export const updateContainer = async (id: string, data: ContainerUpdateParams): Promise<any> => {
   return request.post({
     url: `/containers/update/${id}`,
     data,
   });
-}
+};
 
-// 测试代理延迟
-export const testProxyLatency = () => {
-  return request.get({
-    url: '/images/proxy/test',
+/**
+ * 镜像相关 API
+ */
+
+/**
+ * 获取镜像列表
+ * @returns 镜像列表
+ */
+export const getImageList = async (): Promise<ImageListResponse> => {
+  return request.get<ImageListResponse>({
+    url: '/images',
   });
 };
 
 /**
  * 获取镜像详情
  * @param imageName 镜像名称
+ * @returns 镜像详情
  */
-export function getImageDetail(imageName: string) {
+export const getImageDetail = async (imageName: string): Promise<any> => {
   return request.post({
     url: '/images/detail',
     data: {
       imageName,
     },
   });
-}
+};
+
+/**
+ * 批量更新镜像
+ * @param params 更新参数
+ * @returns 更新结果
+ */
+export const batchUpdateImages = async (params: { useProxy: boolean }): Promise<any> => {
+  return request.post({
+    url: '/images/batch-update',
+    data: params,
+  });
+};
+
+/**
+ * 取消镜像拉取
+ * @param taskId 任务ID
+ * @returns 取消结果
+ */
+export const cancelImagePull = async (taskId: string): Promise<any> => {
+  return request.post({
+    url: '/images/cancel-pull',
+    data: { taskId },
+  });
+};
+
+/**
+ * 检查镜像更新
+ * @returns 检查结果
+ */
+export const checkImageUpdates = async (): Promise<any> => {
+  return request.post({
+    url: '/images/check-updates',
+  });
+};
+
+/**
+ * 删除镜像
+ * @param imageId 镜像ID
+ * @returns 删除结果
+ */
+export const deleteImage = async (imageId: string): Promise<any> => {
+  return request.delete({
+    url: `/images/${imageId}`,
+  });
+};
+
+/**
+ * 更新镜像
+ * @param params 更新参数
+ * @returns 更新结果
+ */
+export const updateImage = async (params: {
+  image: string;
+  tag: string;
+  id?: string;
+  layers?: string[];
+}): Promise<any> => {
+  return request.post({
+    url: '/images/update',
+    data: params,
+  });
+};
+
+/**
+ * 网络相关 API
+ */
+
+/**
+ * 获取网络列表
+ * @returns 网络列表
+ */
+export const getNetworkList = async (): Promise<NetworkListResponse> => {
+  return request.get<NetworkListResponse>({
+    url: '/networks/list',
+  });
+};
+
+/**
+ * 获取容器资源使用情况
+ * @param id 容器ID
+ * @returns 容器资源使用情况
+ */
+export const getContainerStats = async (id: string): Promise<ContainerStatsResponse> => {
+  return request.get<ContainerStatsResponse>({
+    url: `/containers/${id}/stats`,
+  });
+};

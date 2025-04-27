@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="form-step-container">
-      <!-- 简单步骤条 -->
+      <!-- 步骤条：显示当前创建容器的进度 -->
       <t-card :bordered="false">
         <t-steps :current="activeForm" class="step-container" status="process">
           <t-step-item content="基础配置" title="基础配置" />
@@ -11,70 +11,71 @@
         </t-steps>
       </t-card>
 
-      <!-- 分步表单1：基础配置 -->
+      <!-- 第一步：基础配置表单 -->
       <div v-show="activeForm === 0" class="rule-tips">
         <t-alert :close="true" theme="info" title="配置说明">
           <template #message>
             <p>1. 选择要使用的容器镜像，注意版本的选择，镜像来自镜像列表，如果镜像列表中没有，请先添加镜像！</p>
             <p>2. 容器名和重启策略都为默认，如果有需要请自行设置容器名称和重启策略！</p>
-            <!-- <p>3. 配置工作目录和启动命令</p> -->
           </template>
         </t-alert>
       </div>
       <t-form
         v-show="activeForm === 0"
-        :data="formData1"
+        :data="formData"
         :rules="FORM_RULES"
         class="step-form"
         label-align="right"
         @submit="(result: SubmitContext) => onSubmit(result, 1)"
       >
-        <t-form-item label="容器镜像" name="imageName">
-          <t-select
-            v-model="formData1.imageName"
-            :loading="loading"
-            :options="imageOptions"
-            :style="{ width: '480px' }"
-            class="demo-select-base"
-            :disabled="hasImageParams"
-            clearable
-            @change="handleImageChange"
-          />
-        </t-form-item>
-        <t-form-item label="容器名称" name="containerName">
-          <t-input v-model="formData1.containerName" :style="{ width: '480px' }" />
-        </t-form-item>
-        <t-form-item label="重启策略" name="restartPolicy">
-          <t-select v-model="formData1.restartPolicy" :style="{ width: '480px' }" class="demo-select-base" clearable>
-            <t-option
-              v-for="(item, index) in RESTART_POLICY_OPTIONS"
-              :key="index"
-              :label="item.label"
-              :value="item.value"
-            >
-              {{ item.label }}
-            </t-option>
-          </t-select>
-        </t-form-item>
-        <!-- <t-form-item label="工作目录" name="workingDir">
-          <t-input v-model="formData1.workingDir" :style="{ width: '480px' }"/>
-        </t-form-item> -->
-        <!-- <t-form-item label="运行用户" name="user">
-          <t-input v-model="formData1.user" :style="{ width: '480px' }"/>
-        </t-form-item> -->
-        <!-- <t-form-item label="启动命令" name="command">
-          <t-input
-              v-model="formData1.command"
+        <!-- 镜像选择：从镜像列表中选择要使用的镜像 -->
+        <t-form-item label="容器镜像" name="image">
+          <t-tooltip content="选择要使用的容器镜像，会自动解析镜像配置" trigger="focus">
+            <t-select
+              v-model="formData.image"
+              :loading="loading"
+              :options="imageOptions"
               :style="{ width: '480px' }"
-              placeholder="可选，不填写则使用镜像默认命令"
-          />
-        </t-form-item> -->
+              class="demo-select-base"
+              :disabled="hasImageParams"
+              clearable
+              @change="handleImageChange"
+            />
+          </t-tooltip>
+        </t-form-item>
+        <!-- 容器名称：设置容器的名称 -->
+        <t-form-item label="容器名称" name="name">
+          <t-tooltip content="设置容器名称，注意不要重复" trigger="focus">
+            <t-input v-model="formData.name" :style="{ width: '480px' }" />
+          </t-tooltip>
+        </t-form-item>
+
+        <!-- 重启策略：设置容器退出后的重启策略 -->
+        <t-form-item label="重启策略" name="restartPolicy">
+          <t-tooltip content="默认自动重启" trigger="focus">
+            <t-select v-model="formData.restartPolicy" :style="{ width: '480px' }" class="demo-select-base" clearable>
+              <t-option
+                v-for="(item, index) in RESTART_POLICY_OPTIONS"
+                :key="index"
+                :value="item.value"
+                :label="item.label"
+              >
+                {{ item.label }}
+              </t-option>
+            </t-select>
+          </t-tooltip>
+        </t-form-item>
+        <t-form-item label="命令" name="cmd">
+          <t-tooltip content="容器启动命令，小白不要做任何操作" trigger="focus">
+            <t-textarea v-model="cmdText" placeholder="请输入命令" :style="{ width: '480px' }" />
+          </t-tooltip>
+        </t-form-item>
         <t-form-item>
           <t-button theme="primary" type="submit">下一步</t-button>
         </t-form-item>
       </t-form>
 
-      <!-- 分步表单2：网络配置 -->
+      <!-- 第二步：网络配置表单 -->
       <div v-show="activeForm === 1" class="rule-tips">
         <t-alert :close="true" theme="info" title="配置说明">
           <template #message>
@@ -86,52 +87,51 @@
       </div>
       <t-form
         v-show="activeForm === 1"
-        :data="formData2"
+        :data="formData"
         :rules="FORM_RULES"
         class="step-form"
         label-align="left"
         @reset="onReset(0)"
         @submit="(result: SubmitContext) => onSubmit(result, 2)"
       >
+        <!-- 网络模式：选择容器的网络模式 -->
         <t-form-item label="网络模式" name="networkMode">
-          <t-select
-            v-model="formData2.networkMode"
-            :style="{ width: '480px' }"
-            class="demo-select-base"
-            clearable
-            @change="handleNetworkModeChange"
-          >
-            <t-option v-for="(item, index) in networkOptions" :key="index" :label="item.label" :value="item.value">
-              {{ item.label }}
-            </t-option>
-          </t-select>
+          <t-tooltip content="默认使用桥接模式，可以自定义端口映射" trigger="focus">
+            <t-select
+              v-model="formData.networkMode"
+              :style="{ width: '480px' }"
+              class="demo-select-base"
+              clearable
+              @change="handleNetworkModeChange"
+            >
+              <t-option v-for="(item, index) in networkOptions" :key="index" :label="item.label" :value="item.value">
+                {{ item.label }}
+              </t-option>
+            </t-select>
+          </t-tooltip>
         </t-form-item>
+        <!-- 容器内IP：设置容器的IP地址（仅在自定义网络模式下可用） -->
         <t-form-item v-if="showNetworkConfig" label="容器内IP" name="ipAddress">
           <t-input
-            v-model="formData2.ipAddress"
+            v-model="formData.ipAddress"
             :style="{ width: '480px' }"
-            :disabled="formData2.networkMode === 'bridge'"
+            :disabled="formData.networkMode === 'bridge'"
             placeholder="可选，仅在自定义网络模式下需要"
           />
         </t-form-item>
+        <!-- 网关：设置容器的网关（仅在自定义网络模式下可用） -->
         <t-form-item v-if="showNetworkConfig" label="网关" name="gateway">
           <t-input
-            v-model="formData2.gateway"
+            v-model="formData.gateway"
             :style="{ width: '480px' }"
-            :disabled="formData2.networkMode === 'bridge'"
+            :disabled="formData.networkMode === 'bridge'"
             placeholder="可选，仅在自定义网络模式下需要"
           />
         </t-form-item>
-        <!-- <t-form-item label="MAC地址" name="macAddress">
-          <t-input
-              v-model="formData2.macAddress"
-              :style="{ width: '480px' }"
-              placeholder="可选，仅在自定义网络模式下需要"
-          /> -->
-        <!-- </t-form-item> -->
+        <!-- 端口映射：设置容器端口与主机端口的映射关系 -->
         <t-form-item label="端口映射">
           <t-space direction="vertical" style="width: 100%">
-            <div v-for="(port, index) in formData2.portMappings" :key="index" class="port-mapping">
+            <div v-for="(port, index) in formData.portMappings" :key="index" class="port-mapping">
               <t-space>
                 <t-input-number
                   v-model="port.hostPort"
@@ -157,9 +157,6 @@
                   </template>
                 </t-button>
               </t-space>
-              <div v-if="port.validationResult" :class="['validation-result', port.validationResult.valid ? 'valid' : 'invalid']">
-                {{ port.validationResult.message }}
-              </div>
             </div>
             <t-button theme="default" variant="dashed" :disabled="disablePortMappings" @click="addPort">
               <template #icon>
@@ -175,7 +172,7 @@
         </t-form-item>
       </t-form>
 
-      <!-- 分步表单3：存储配置 -->
+      <!-- 第三步：存储配置表单 -->
       <div v-show="activeForm === 2" class="rule-tips">
         <t-alert :close="true" theme="info" title="配置说明">
           <template #message>
@@ -186,22 +183,31 @@
       </div>
       <t-form
         v-show="activeForm === 2"
-        :data="formData3"
+        :data="formData"
         :rules="FORM_RULES"
         class="step-form"
         label-align="left"
         @reset="onReset(1)"
         @submit="(result: SubmitContext) => onSubmit(result, 3)"
       >
+        <!-- 数据卷映射：设置主机目录与容器目录的映射关系 -->
         <t-form-item label="数据卷映射">
           <t-space direction="vertical" style="width: 100%">
-            <div v-for="(volume, index) in formData3.volumeMappings" :key="index" class="volume-mapping">
+            <div v-for="(volume, index) in formData.volumeMappings" :key="index" class="volume-mapping">
               <t-space>
-                <t-input v-model="volume.hostPath" placeholder="主机路径" style="width: 200px" />
-                <t-input v-model="volume.containerPath" placeholder="容器路径" style="width: 200px" />
-                <t-select v-model="volume.mode" style="width: 100px">
-                  <t-option value="ro">只读</t-option>
-                  <t-option value="rw">读写</t-option>
+                <t-tooltip content="设置主机真实路径" trigger="focus">
+                  <t-input v-model="volume.hostPath" placeholder="主机路径" style="width: 300px" />
+                </t-tooltip>
+                <t-tooltip content="设置容器内路径一般默认，可以自行增加" trigger="focus">
+                  <t-input v-model="volume.containerPath" placeholder="容器路径" style="width: 200px" />
+                </t-tooltip>
+                <t-select v-model="volume.readOnly" style="width: 100px">
+                  <t-option
+                    v-for="option in VOLUME_PERMISSION_OPTIONS"
+                    :key="String(option.value)"
+                    :label="option.label"
+                    :value="option.value"
+                  />
                 </t-select>
                 <t-button theme="danger" variant="text" @click="removeVolume(index)">
                   <template #icon>
@@ -209,9 +215,6 @@
                   </template>
                 </t-button>
               </t-space>
-              <div v-if="volume.validationResult" :class="['validation-result', volume.validationResult.valid ? 'valid' : 'invalid']">
-                {{ volume.validationResult.message }}
-              </div>
             </div>
             <t-button theme="default" variant="dashed" @click="addVolume">
               <template #icon>
@@ -227,7 +230,7 @@
         </t-form-item>
       </t-form>
 
-      <!-- 分步表单4：高级配置 -->
+      <!-- 第四步：高级配置表单 -->
       <div v-show="activeForm === 3" class="rule-tips">
         <t-alert :close="true" theme="info" title="配置说明">
           <template #message>
@@ -239,16 +242,17 @@
       </div>
       <t-form
         v-show="activeForm === 3"
-        :data="formData4"
+        :data="formData"
         :rules="FORM_RULES"
         class="step-form"
         label-align="left"
         @reset="onReset(2)"
         @submit="(result: SubmitContext) => onSubmit(result, 6)"
       >
+        <!-- 环境变量：设置容器的环境变量 -->
         <t-form-item label="环境变量">
           <t-space direction="vertical" style="width: 100%">
-            <div v-for="(env, index) in formData4.environmentVariables" :key="index" class="env-variable">
+            <div v-for="(env, index) in formData.environmentVariables" :key="index" class="env-variable">
               <t-space>
                 <t-input v-model="env.key" placeholder="变量名" style="width: 200px" />
                 <t-input v-model="env.value" placeholder="变量值" style="width: 200px" />
@@ -267,14 +271,9 @@
             </t-button>
           </t-space>
         </t-form-item>
-        <!-- <t-form-item label="内存限制(MB)" name="memoryLimit">
-          <t-input-number v-model="formData4.memoryLimit" :min="0" placeholder="请输入内存限制(MB)"/>
-        </t-form-item>
-        <t-form-item label="CPU限制" name="cpuLimit">
-          <t-input-number v-model="formData4.cpuLimit" :min="0" placeholder="请输入CPU限制"/>
-        </t-form-item> -->
+        <!-- 特权模式：设置容器是否以特权模式运行 -->
         <t-form-item label="特权模式" name="privileged">
-          <t-switch v-model="formData4.privileged" />
+          <t-switch v-model="formData.privileged" />
         </t-form-item>
         <t-form-item>
           <t-button theme="default" type="reset" variant="base">上一步</t-button>
@@ -282,15 +281,15 @@
         </t-form-item>
       </t-form>
 
-      <!-- 完成页面 -->
+      <!-- 完成页面：显示创建成功的提示 -->
       <div v-show="activeForm === 6" class="step-form-4">
         <t-space direction="vertical" style="align-items: center">
           <t-icon name="check-circle-filled" size="52px" style="color: green" />
           <p class="text">创建成功</p>
-          <p class="tips">容器配置已保存，您可以查看容器列表或继续创建新的容器</p>
+          <p class="tips">容器配置已保存，您可以查看容器详情或继续创建新的容器</p>
           <div class="button-group">
             <t-button theme="primary" @click="onReset(0)">继续创建</t-button>
-            <t-button theme="default" variant="base" @click="complete">查看列表</t-button>
+            <t-button theme="default" variant="base" @click="complete">查看详情</t-button>
           </div>
         </t-space>
       </div>
@@ -305,76 +304,50 @@ export default {
 </script>
 
 <script lang="ts" setup>
+// 导入所需的类型和组件
 import type { SelectOption, SelectValue, SelectValueChangeTrigger } from 'tdesign-vue-next';
 import { MessagePlugin, SubmitContext } from 'tdesign-vue-next';
-import { computed, onMounted, ref, onUnmounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 
+// 导入API和工具函数
 import { createContainer, getImageDetail, getImageList, getNetworkList } from '@/api/container';
-import { dockerWebSocketService } from '@/api/websocket/dockerWebSocket';
 import router from '@/router';
 
+// 导入常量和类型定义
 import {
+  ContainerForm,
   FORM_RULES,
-  INITIAL_DATA1,
-  INITIAL_DATA2,
-  INITIAL_DATA3,
-  INITIAL_DATA4,
+  INITIAL_DATA,
   mapFormDataToRequest,
   RESTART_POLICY_OPTIONS,
 } from '@/pages/docker/containers/container-create/constants';
 
-// 添加校验结果类型
-interface ValidationResult {
-  valid: boolean;
-  message: string;
-}
+// 权限选项配置
+const VOLUME_PERMISSION_OPTIONS = [
+  { label: '只读', value: true },
+  { label: '读写', value: false },
+];
 
-// 修改端口映射类型
-interface PortMapping {
-  hostPort: string;
-  containerPort: string;
-  protocol: string;
-  validationResult?: ValidationResult;
-}
-
-// 修改卷映射类型
-interface VolumeMapping {
-  hostPath: string;
-  containerPath: string;
-  mode: string;
-  isDefaultVolume?: boolean;
-  validationResult?: ValidationResult;
-}
-
-const formData1 = ref({ ...INITIAL_DATA1 });
-const formData2 = ref({ ...INITIAL_DATA2 });
-const formData3 = ref({ ...INITIAL_DATA3 });
-const formData4 = ref({ ...INITIAL_DATA4 });
-const activeForm = ref(0);
-const loading = ref(false);
-const imageOptions = ref<{ label: string; value: string }[]>([]);
-const networkOptions = ref<{ label: string; value: string; gateway?: string }[]>([]);
-const creating = ref(false);
+// 表单数据：使用ref创建响应式数据
+const formData = ref(INITIAL_DATA);
+const activeForm = ref(0); // 当前步骤
+const loading = ref(false); // 加载状态
+const imageOptions = ref<{ label: string; value: string }[]>([]); // 镜像选项
+const networkOptions = ref<{ label: string; value: string; gateway?: string }[]>([]); // 网络选项
+const creating = ref(false); // 创建状态
 
 // 网络模式相关状态
-const showNetworkConfig = ref(false);
-const disablePortMappings = ref(false);
+const showNetworkConfig = ref(false); // 是否显示网络配置
+const disablePortMappings = ref(false); // 是否禁用端口映射
+const tempPortMappings = ref<Array<{ hostPort: string; containerPort: string; protocol: string; ip: string }>>([]); // 临时存储端口映射
 
+// 路由相关
 const route = useRoute();
-const isEditMode = computed(() => !!route.query.containerId);
-const hasImageParams = computed(() => !!route.query.image && !!route.query.tag);
-const containerInfo = computed(() => {
-  if (route.query.containerInfo) {
-    try {
-      return JSON.parse(route.query.containerInfo as string);
-    } catch (e) {
-      return null;
-    }
-  }
-  return null;
-});
+const hasImageParams = computed(() => !!route.query.image && !!route.query.tag); // 是否有镜像参数
+const containerId = ref<string>(''); // 容器ID
 
+// 获取镜像列表
 const fetchImageList = async () => {
   loading.value = true;
   try {
@@ -400,6 +373,7 @@ const fetchImageList = async () => {
   }
 };
 
+// 获取网络列表
 const fetchNetworkList = async () => {
   try {
     const res = await getNetworkList();
@@ -407,7 +381,7 @@ const fetchNetworkList = async () => {
       networkOptions.value = res.data.map((network) => {
         const gateway = network.IPAM?.Config?.[0]?.Gateway || '';
         return {
-          label: network.Name || '未知网络',
+          label: network.nameStr || '未知网络',
           value: network.Name || '未知网络',
           gateway,
         };
@@ -421,6 +395,7 @@ const fetchNetworkList = async () => {
   }
 };
 
+// 处理镜像选择变化
 const handleImageChange = async (
   value: SelectValue<SelectOption>,
   context: {
@@ -431,73 +406,96 @@ const handleImageChange = async (
   },
 ) => {
   if (!value) {
-    formData1.value = { ...INITIAL_DATA1 };
-    formData2.value = { ...INITIAL_DATA2 };
-    formData3.value = { ...INITIAL_DATA3 };
-    formData4.value = { ...INITIAL_DATA4 };
+    formData.value = { ...INITIAL_DATA };
     return;
   }
   try {
     loading.value = true;
-    const [imageName, tag] = (value as string).split(':');
+    const imageName = value as string;
     const res = await getImageDetail(imageName);
-    console.log('获取镜像详情响应:', res);
-    const detail = res.data;
+    if (res.code === 0) {
+      const detail = res.data;
+      formData.value = { ...INITIAL_DATA };
 
-    formData1.value = { ...INITIAL_DATA1 };
-    formData2.value = { ...INITIAL_DATA2 };
-    formData3.value = { ...INITIAL_DATA3 };
-    formData4.value = { ...INITIAL_DATA4 };
+      // 分割镜像名称和标签
+      const [image, tag = 'latest'] = imageName.split(':');
+      formData.value.image = image;
+      formData.value.tag = tag;
 
-    formData1.value.imageName = value as string;
-    const randomNum = Math.floor(Math.random() * 90) + 10;
-    formData1.value.containerName = `${imageName.replace(/[^a-zA-Z0-9]/g, '-')}-${randomNum}`;
-    formData1.value.restartPolicy = 'always';
+      // 生成随机容器名称
+      const randomNum = Math.floor(Math.random() * 90) + 10;
+      formData.value.name = `${image.replace(/[^a-zA-Z0-9]/g, '-')}-${randomNum}`;
+      formData.value.restartPolicy = 'always';
 
-    if (detail) {
-      const { config } = detail;
-      const imageDetails = [];
+      if (detail) {
+        const { config } = detail;
 
-      if (config.cmd && config.cmd.length > 0) {
-        const cmd = Array.isArray(config.cmd) ? config.cmd.join(' ') : config.cmd;
-        imageDetails.push(`默认命令: ${cmd}`);
-      }
+        // 设置入口点
+        if (config.entrypoint) {
+          formData.value.entrypoint = config.entrypoint;
+        }
 
-      if (config.exposedPorts && Object.keys(config.exposedPorts).length > 0) {
-        imageDetails.push(`暴露端口: ${Object.keys(config.exposedPorts).join(', ')}`);
-      }
+        // 设置默认命令
+        if (config.cmd) {
+          formData.value.cmd = config.cmd;
+        }
 
-      if (config.volumes && Object.keys(config.volumes).length > 0) {
-        imageDetails.push(`卷: ${Object.keys(config.volumes).join(', ')}`);
-      }
+        // 设置暴露端口
+        if (config.exposedPorts) {
+          formData.value.portMappings = Object.keys(config.exposedPorts).map((port) => {
+            const [portNumber, protocol] = port.split('/');
+            return {
+              hostPort: portNumber,
+              containerPort: portNumber,
+              protocol: protocol || 'tcp',
+              ip: '',
+            };
+          });
+        }
 
-      if (config.env) {
-        formData4.value.environmentVariables = config.env.map((env: string) => {
-          const parts = env.split('=');
-          const key = parts[0];
-          const value = parts.slice(1).join('=');
-          return { key, value: value || '' };
-        });
-      }
+        // 设置数据卷
+        if (config.volumes) {
+          formData.value.volumeMappings = Object.keys(config.volumes).map((volume) => ({
+            hostPath: '',
+            containerPath: volume,
+            readOnly: false,
+          }));
+        }
 
-      if (config.exposedPorts) {
-        formData2.value.portMappings = Object.keys(config.exposedPorts).map((port) => {
-          const [portNumber, protocol] = port.split('/');
-          return {
-            hostPort: portNumber,
-            containerPort: portNumber,
-            protocol: protocol || 'tcp',
+        // 设置环境变量
+        if (config.env) {
+          formData.value.environmentVariables = config.env.map((env: string) => {
+            const [key, value] = env.split('=');
+            return { key, value };
+          });
+        }
+
+        // 设置工作目录
+        if (config.workingDir) {
+          formData.value.workingDir = config.workingDir;
+        }
+
+        // 设置用户
+        if (config.user) {
+          formData.value.user = config.user;
+        }
+
+        // 设置健康检查
+        if (config.healthcheck) {
+          formData.value.healthcheck = {
+            test: config.healthcheck.test || [],
+            interval: config.healthcheck.interval || '30s',
+            timeout: config.healthcheck.timeout || '10s',
+            retries: config.healthcheck.retries || 3,
+            startPeriod: config.healthcheck.startPeriod || '0s',
           };
-        });
-      }
+        }
 
-      if (config.volumes && Object.keys(config.volumes).length > 0) {
-        formData3.value.volumeMappings = Object.keys(config.volumes).map((path) => ({
-          hostPath: '',
-          containerPath: path,
-          mode: 'rw',
-        }));
+        // 显示镜像信息提示
+        MessagePlugin.success(`已加载镜像 ${imageName} 的配置信息`);
       }
+    } else {
+      MessagePlugin.error(res.message || '获取镜像详情失败');
     }
   } catch (error) {
     console.error('获取镜像详情失败:', error);
@@ -507,6 +505,7 @@ const handleImageChange = async (
   }
 };
 
+// 处理网络模式变化
 const handleNetworkModeChange = async (
   value: SelectValue<SelectOption>,
   context: {
@@ -517,205 +516,157 @@ const handleNetworkModeChange = async (
   },
 ) => {
   const mode = value as string;
-  formData2.value.ipAddress = '';
-  formData2.value.gateway = '';
-  formData2.value.portMappings = [];
+  formData.value.ipAddress = '';
+  formData.value.gateway = '';
 
   if (mode === 'bridge') {
     disablePortMappings.value = false;
     showNetworkConfig.value = false;
-
-    if (formData1.value.imageName) {
-      try {
-        const [imageName] = formData1.value.imageName.split(':');
-        const res = await getImageDetail(imageName);
-        if (res.code === 0) {
-          formData2.value.portMappings = Object.keys(res.config.exposedPorts).map((port) => {
-            const [portNumber, protocol] = port.split('/');
-            return {
-              hostPort: portNumber,
-              containerPort: portNumber,
-              protocol: protocol || 'tcp',
-            };
-          });
-        }
-      } catch (error) {
-        console.error('获取镜像端口映射失败:', error);
-      }
+    // 如果之前保存了端口映射，则恢复
+    if (tempPortMappings.value.length > 0) {
+      formData.value.portMappings = [...tempPortMappings.value];
+      tempPortMappings.value = [];
     }
   } else if (mode === 'host' || mode === 'none') {
+    // 保存当前的端口映射配置
+    if (formData.value.portMappings.length > 0) {
+      tempPortMappings.value = [...formData.value.portMappings];
+    }
     disablePortMappings.value = true;
     showNetworkConfig.value = false;
+    formData.value.portMappings = [];
   } else {
     disablePortMappings.value = false;
     showNetworkConfig.value = true;
+    // 如果之前保存了端口映射，则恢复
+    if (tempPortMappings.value.length > 0) {
+      formData.value.portMappings = [...tempPortMappings.value];
+      tempPortMappings.value = [];
+    }
     const selectedNetwork = networkOptions.value.find((n) => n.value === mode);
     if (selectedNetwork?.gateway) {
-      formData2.value.gateway = selectedNetwork.gateway;
+      formData.value.gateway = selectedNetwork.gateway;
     }
   }
 };
 
+// 添加端口映射
 const addPort = () => {
-  formData2.value.portMappings.push({
+  formData.value.portMappings.push({
     hostPort: '',
     containerPort: '',
     protocol: 'tcp',
+    ip: '',
   });
 };
 
+// 移除端口映射
 const removePort = (index: number) => {
-  formData2.value.portMappings.splice(index, 1);
+  formData.value.portMappings.splice(index, 1);
 };
 
+// 添加数据卷映射
 const addVolume = () => {
-  formData3.value.volumeMappings.push({
+  formData.value.volumeMappings.push({
     hostPath: '',
     containerPath: '',
-    mode: 'rw',
+    readOnly: false,
   });
 };
 
+// 移除数据卷映射
 const removeVolume = (index: number) => {
-  formData3.value.volumeMappings.splice(index, 1);
+  formData.value.volumeMappings.splice(index, 1);
 };
 
+// 添加环境变量
 const addEnv = () => {
-  formData4.value.environmentVariables.push({
+  formData.value.environmentVariables.push({
     key: '',
     value: '',
   });
 };
 
+// 移除环境变量
 const removeEnv = (index: number) => {
-  formData4.value.environmentVariables.splice(index, 1);
+  formData.value.environmentVariables.splice(index, 1);
 };
 
+// 创建容器
 const handleCreateContainer = async () => {
   try {
     creating.value = true;
-    const request = mapFormDataToRequest(formData1.value, formData2.value, formData3.value, formData4.value);
+    const request = mapFormDataToRequest(formData.value);
     const res = await createContainer(request);
     if (res.code === 0) {
-      MessagePlugin.success(res.message);
-      router.push('/docker/containers');
+      MessagePlugin.success('创建容器成功');
+      containerId.value = res.data; // 保存容器ID
+      activeForm.value = 6; // 显示成功页面
+      setTimeout(() => {
+        router.push(`/docker/containers/detail?id=${containerId.value}`);
+      }, 2000);
     } else {
-      MessagePlugin.error(res.message);
+      MessagePlugin.error(res.message || '创建容器失败');
     }
   } catch (error) {
-    console.error('创建容器失败:', error);
     MessagePlugin.error('创建容器失败');
   } finally {
     creating.value = false;
   }
 };
 
+// 表单提交处理
 const onSubmit = (result: SubmitContext, val: number) => {
   if (result.validateResult === true) {
     if (val === 6) {
       handleCreateContainer();
     } else {
+      // 如果是从基础配置进入网络配置，且网络模式未设置，则使用默认值
+      if (val === 1 && !formData.value.networkMode) {
+        formData.value.networkMode = 'bridge';
+      }
       activeForm.value = val;
     }
   }
 };
 
+// 重置表单
 const onReset = (val: number) => {
   activeForm.value = val;
 };
 
+// 完成创建
 const complete = () => {
-  router.replace({ path: '/docker/containers' });
-};
-
-// 添加 WebSocket 消息处理
-const handleValidationResult = (result: any) => {
-  if (result.type === 'port') {
-    const portMapping = formData2.value.portMappings.find(p => p.hostPort === result.port.toString());
-    if (portMapping) {
-      portMapping.validationResult = {
-        valid: result.valid,
-        message: result.message
-      };
-    }
-  } else if (result.type === 'path') {
-    const volumeMapping = formData3.value.volumeMappings.find(v => v.hostPath === result.path);
-    if (volumeMapping) {
-      volumeMapping.validationResult = {
-        valid: result.valid,
-        message: result.message
-      };
-    }
+  if (containerId.value) {
+    router.push(`/docker/containers/detail?id=${containerId.value}`);
+  } else {
+    router.push('/docker/containers');
   }
 };
 
-// 注册 WebSocket 消息处理器
-onMounted(() => {
-  dockerWebSocketService.on('INSTALL_VALIDATE_RESULT', handleValidationResult);
-});
-
-onUnmounted(() => {
-  dockerWebSocketService.off('INSTALL_VALIDATE_RESULT', handleValidationResult);
-});
-
+// 组件挂载时初始化
 onMounted(async () => {
   if (hasImageParams.value) {
     // 如果有镜像参数，直接设置镜像并获取详情
     const imageName = `${route.query.image}:${route.query.tag}`;
-    formData1.value.imageName = imageName;
+    formData.value.image = imageName as string;
+    formData.value.tag = route.query.tag as string;
     await handleImageChange(imageName, {
       option: undefined,
       selectedOptions: [],
-      trigger: 'click' as SelectValueChangeTrigger
+      trigger: 'click' as SelectValueChangeTrigger,
     });
   } else {
     // 否则加载镜像列表
     fetchImageList();
   }
   fetchNetworkList();
-  if (isEditMode.value && containerInfo.value) {
-    // 填充基础配置
-    formData1.value = {
-      imageName: containerInfo.value.image,
-      containerName: containerInfo.value.name,
-      restartPolicy: containerInfo.value.restart_policy,
-      workingDir: containerInfo.value.working_dir || '',
-      user: containerInfo.value.user || '',
-      command: containerInfo.value.command || '',
-    };
+});
 
-    // 填充网络配置
-    formData2.value = {
-      networkMode: containerInfo.value.network_mode,
-      ipAddress: containerInfo.value.ip_address,
-      gateway: containerInfo.value.gateway,
-      // macAddress: containerInfo.value.mac_address,
-      portMappings: containerInfo.value.ports.map((port: any) => ({
-        hostPort: port.publicPort,
-        containerPort: port.privatePort,
-        protocol: port.type.toLowerCase(),
-      })),
-    };
-
-    // 填充存储配置
-    formData3.value = {
-      volumeMappings: containerInfo.value.mounts.map((mount: any) => ({
-        hostPath: mount.source,
-        containerPath: mount.destination,
-        mode: mount.rw ? 'rw' : 'ro',
-      })),
-    };
-
-    // 填充环境变量
-    formData4.value = {
-      environmentVariables: containerInfo.value.env.map((env: string) => {
-        const [key, value] = env.split('=');
-        return { key, value };
-      }),
-      memoryLimit: '',
-      cpuLimit: '',
-      privileged: containerInfo.value.privileged || false,
-    };
+const cmdText = computed({
+  get: () => formData.value.cmd.join(' '),
+  set: (value: string) => {
+    formData.value.cmd = value.split(' ').filter(Boolean);
   }
 });
 </script>
@@ -723,28 +674,10 @@ onMounted(async () => {
 <style lang="less" scoped>
 @import './index.less';
 
+// 端口映射和数据卷映射的样式
 .port-mapping,
 .volume-mapping {
   position: relative;
   margin-bottom: 16px;
-}
-
-.validation-result {
-  margin-top: 4px;
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  
-  &.valid {
-    color: #52c41a;
-    background-color: #f6ffed;
-    border: 1px solid #b7eb8f;
-  }
-  
-  &.invalid {
-    color: #ff4d4f;
-    background-color: #fff2f0;
-    border: 1px solid #ffccc7;
-  }
 }
 </style>

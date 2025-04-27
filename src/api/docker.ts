@@ -2,7 +2,6 @@ import { WebSocketClient, WebSocketMessage } from './websocket';
 
 export interface PullImageParams {
   imageName: string;
-  useProxy: boolean;
 }
 
 export interface PullImageProgress {

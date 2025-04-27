@@ -11,6 +11,7 @@ export interface PortMapping {
     hostPort: string;
     containerPort: string;
     protocol: string;
+    ip: string;
     validationResult?: ValidationResult;
 }
 
@@ -18,15 +19,34 @@ export interface PortMapping {
 export interface VolumeMapping {
     hostPath: string;
     containerPath: string;
-    mode: string;
-    isDefaultVolume?: boolean; // 标记是否为镜像默认卷
-    validationResult?: ValidationResult;
+    readOnly: boolean;
+}
+
+// 设备映射类型
+export interface DeviceMapping {
+    hostPath: string;
+    containerPath: string;
 }
 
 // 环境变量类型
 export interface EnvironmentVariable {
     key: string;
     value: string;
+}
+
+// 标签类型
+export interface Label {
+    key: string;
+    value: string;
+}
+
+// 健康检查类型
+export interface HealthCheck {
+    test: string[];
+    interval: string;
+    timeout: string;
+    retries: number;
+    startPeriod: string;
 }
 
 // 创建容器请求参数类型
@@ -59,8 +79,7 @@ export interface CreateContainerParams {
     volumeMounts: Array<{
         hostPath: string;
         containerPath: string;
-        mode?: string;
-        readOnly?: boolean;
+        readOnly: boolean;
     }>;
     tmpfs?: string[];
     shmSize?: string;
@@ -101,6 +120,7 @@ export interface CreateContainerParams {
     pidMode?: string;
     utsMode?: string;
     sysctls?: Record<string, string>;
+    healthcheck?: HealthCheck;
 }
 
 // 镜像选项
@@ -138,104 +158,178 @@ export const RESTART_POLICY_OPTIONS = [
 
 // 表单验证规则
 export const FORM_RULES: Record<string, FormRule[]> = {
-    imageName: [{required: true, message: '请选择镜像', type: 'error'}],
-    containerName: [{required: true, message: '请输入容器名称', type: 'error'}],
+    image: [{required: true, message: '请选择镜像', type: 'error'}],
+    name: [{required: true, message: '请输入容器名称', type: 'error'}],
     restartPolicy: [{required: true, message: '请选择重启策略', type: 'error'}],
-    workingDir: [{required: false, message: '请输入工作目录', type: 'error'}],
-    user: [{required: false, message: '请输入用户', type: 'error'}],
-    command: [{required: false, message: '请输入命令', type: 'error'}],
     networkMode: [{required: true, message: '请选择网络模式', type: 'error'}],
-    ipAddress: [{required: false, message: '请输入IP地址', type: 'error'}],
-    gateway: [{required: false, message: '请输入网关', type: 'error'}],
-    macAddress: [{required: false, message: '请输入MAC地址', type: 'error'}],
-    memoryLimit: [{required: false, message: '请输入内存限制', type: 'error'}],
-    cpuLimit: [{required: false, message: '请输入CPU限制', type: 'error'}],
 };
 
-// 第一步表单初始数据：基础配置
-export const INITIAL_DATA1 = {
-    imageName: '',
-    containerName: '',
+// 容器表单接口
+export interface ContainerForm {
+    // 镜像信息
+    image: string;
+    tag: string;
+    autoPull: boolean;
+
+    // 容器基本信息
+    name: string;
+    autoRemove: boolean;
+    restartPolicy: string;
+
+    // 网络配置
+    portMappings: PortMapping[];
+    networkMode: string;
+    ipAddress: string;
+    gateway: string;
+
+    // 存储配置
+    volumeMappings: VolumeMapping[];
+    devices: DeviceMapping[];
+
+    // 环境变量
+    environmentVariables: EnvironmentVariable[];
+
+    // 安全配置
+    privileged: boolean;
+    capAdd: string[];
+    capDrop: string[];
+
+    // 资源限制
+    memoryLimit: string;
+    cpuLimit: string;
+
+    // 高级配置
+    entrypoint: string[];
+    cmd: string[];
+    workingDir: string;
+    user: string;
+    labels: Label[];
+    healthcheck: HealthCheck;
+}
+
+// 表单初始数据
+export const INITIAL_DATA: ContainerForm = {
+    // 镜像信息
+    image: '',
+    tag: 'latest',
+    autoPull: false,
+
+    // 容器基本信息
+    name: '',
+    autoRemove: false,
     restartPolicy: 'always',
-    workingDir: '',
-    user: '',
-    command: '',
-};
 
-// 第二步表单初始数据：网络配置
-export const INITIAL_DATA2 = {
+    // 网络配置
+    portMappings: [],
     networkMode: 'bridge',
     ipAddress: '',
     gateway: '',
-    portMappings: [] as PortMapping[],
-};
 
-// 第三步表单初始数据：存储配置
-export const INITIAL_DATA3 = {
-    volumeMappings: [] as VolumeMapping[],
-};
+    // 存储配置
+    volumeMappings: [],
+    devices: [],
 
-// 第四步表单初始数据：高级配置
-export const INITIAL_DATA4 = {
-    environmentVariables: [] as { key: string; value: string }[],
+    // 环境变量
+    environmentVariables: [],
+
+    // 安全配置
+    privileged: false,
+    capAdd: [],
+    capDrop: [],
+
+    // 资源限制
     memoryLimit: '',
     cpuLimit: '',
-    privileged: false,
+
+    // 高级配置
+    entrypoint: [],
+    cmd: [],
+    workingDir: '',
+    user: '',
+    labels: [],
+    healthcheck: {
+        test: [],
+        interval: '30s',
+        timeout: '10s',
+        retries: 3,
+        startPeriod: '0s'
+    }
 };
 
-
 // 表单数据到请求对象的转换函数
-export function mapFormDataToRequest(
-    formData1: typeof INITIAL_DATA1,
-    formData2: typeof INITIAL_DATA2,
-    formData3: typeof INITIAL_DATA3,
-    formData4: typeof INITIAL_DATA4,
-): CreateContainerParams {
-    // 分割镜像名称和标签
-    const [image, tag = 'latest'] = formData1.imageName.split(':');
-
+export function mapFormDataToRequest(formData: ContainerForm): CreateContainerParams {
     return {
         // 镜像信息
-        image,
-        tag,
-        autoPull: false,
+        image: formData.image,
+        tag: formData.tag,
+        autoPull: formData.autoPull,
 
         // 容器基本信息
-        name: formData1.containerName,
-        autoRemove: false,
-        restartPolicy: formData1.restartPolicy || 'always',
+        name: formData.name,
+        autoRemove: formData.autoRemove,
+        restartPolicy: formData.restartPolicy,
 
         // 网络配置
-        portMappings: formData2.portMappings.map((p) => ({
+        portMappings: formData.portMappings.map(p => ({
             hostPort: p.hostPort,
             containerPort: p.containerPort,
-            protocol: p.protocol || 'tcp',
-            ip: '',
+            protocol: p.protocol,
+            ip: p.ip || ''
         })),
-        networkMode: formData2.networkMode || 'bridge',
-        ipAddress: formData2.ipAddress,
+        networkMode: formData.networkMode,
+        ipAddress: formData.ipAddress,
         dns: [],
         dnsSearch: [],
         extraHosts: [],
+        macAddress: '',
 
         // 存储配置
-        volumeMounts: formData3.volumeMappings.map((v) => ({
+        volumeMounts: formData.volumeMappings.map(v => ({
             hostPath: v.hostPath,
             containerPath: v.containerPath,
-            mode: v.mode || 'rw',
-            readOnly: v.mode === 'ro',
+            readOnly: v.readOnly
         })),
+        tmpfs: [],
+        shmSize: '',
 
         // 环境变量
-        environmentVariables: formData4.environmentVariables.map((e) => ({
-            key: e.key,
-            value: e.value,
-        })),
+        environmentVariables: formData.environmentVariables,
 
-        // 进程配置
-        command: formData1.command,
+        // 资源限制
+        memory: formData.memoryLimit ? parseInt(formData.memoryLimit) : undefined,
+        memorySwap: undefined,
+        cpuShares: formData.cpuLimit ? parseInt(formData.cpuLimit) : undefined,
+        cpuPeriod: undefined,
+        cpuQuota: undefined,
+        cpusetCpus: '',
 
         // 安全配置
-        privileged: formData4.privileged || false,
+        privileged: formData.privileged,
+        capAdd: formData.capAdd,
+        capDrop: formData.capDrop,
+        securityOpt: [],
+        devices: [],
+
+        // 进程配置
+        user: formData.user,
+        groupAdd: [],
+        workingDir: formData.workingDir,
+        command: formData.cmd.join(' '),
+        entrypoint: formData.entrypoint,
+        stopSignal: '',
+        stopTimeout: undefined,
+
+        // 其他配置
+        labels: formData.labels.reduce((acc, label) => {
+            if (label.key && label.value) {
+                acc[label.key] = label.value;
+            }
+            return acc;
+        }, {} as Record<string, string>),
+        ipcMode: '',
+        pidMode: '',
+        utsMode: '',
+        sysctls: {},
+        healthcheck: formData.healthcheck
     };
 }

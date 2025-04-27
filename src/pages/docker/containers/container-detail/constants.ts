@@ -1,17 +1,24 @@
 import {FormRule} from 'tdesign-vue-next';
 
+// 校验结果类型
+export interface ValidationResult {
+    valid: boolean;
+    message: string;
+}
+
 // 端口映射类型
 export interface PortMapping {
     hostPort: string;
     containerPort: string;
     protocol: string;
+    validationResult?: ValidationResult;
 }
 
 // 卷映射类型
 export interface VolumeMapping {
     hostPath: string;
     containerPath: string;
-    mode: string;
+    readOnly: boolean;
     isDefaultVolume?: boolean; // 标记是否为镜像默认卷
 }
 
@@ -51,8 +58,7 @@ export interface CreateContainerParams {
     volumeMounts: Array<{
         hostPath: string;
         containerPath: string;
-        mode?: string;
-        readOnly?: boolean;
+        readOnly: boolean;
     }>;
     tmpfs?: string[];
     shmSize?: string;
@@ -144,6 +150,15 @@ export const FORM_RULES: Record<string, FormRule[]> = {
     cpuLimit: [{required: false, message: '请输入CPU限制', type: 'error'}],
 };
 
+// 网络配置类型
+export interface NetworkFormData {
+    networkMode: string;
+    ipAddress: string;
+    gateway: string;
+    portMappings: PortMapping[];
+    savedPortMappings: PortMapping[];
+}
+
 // 第一步表单初始数据：基础配置
 export const INITIAL_DATA1 = {
     imageName: '',
@@ -155,11 +170,12 @@ export const INITIAL_DATA1 = {
 };
 
 // 第二步表单初始数据：网络配置
-export const INITIAL_DATA2 = {
+export const INITIAL_DATA2: NetworkFormData = {
     networkMode: 'bridge',
     ipAddress: '',
     gateway: '',
     portMappings: [] as PortMapping[],
+    savedPortMappings: [] as PortMapping[],
 };
 
 // 第三步表单初始数据：存储配置
@@ -214,8 +230,7 @@ export function mapFormDataToRequest(
         volumeMounts: formData3.volumeMappings.map((v) => ({
             hostPath: v.hostPath,
             containerPath: v.containerPath,
-            mode: v.mode || 'rw',
-            readOnly: v.mode === 'ro',
+            readOnly: v.readOnly
         })),
 
         // 环境变量

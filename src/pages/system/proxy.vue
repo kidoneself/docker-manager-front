@@ -102,8 +102,7 @@ import type { FormInstanceFunctions, FormRule, SubmitContext, Data as TData } fr
 import { MessagePlugin } from 'tdesign-vue-next';
 import { onMounted, ref } from 'vue';
 
-import { setProxySetting, setMirrorSetting, getSystemSetting } from '@/api/system';
-import { testProxyLatency } from '@/api/container';
+import { setProxySetting, setMirrorSetting, getSystemSetting, testProxyLatency } from '@/api/system';
 
 const MAX_MIRROR_URLS = 5;
 

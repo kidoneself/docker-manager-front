@@ -98,3 +98,13 @@ export function setMirrorSetting(data: MirrorSettingRequest) {
     }
   });
 }
+
+/**
+ * 测试代理延迟
+ * @returns 代理延迟测试结果
+ */
+export function testProxyLatency() {
+  return request.get<SettingResponse>({
+    url: '/system/proxy/test',
+  });
+}

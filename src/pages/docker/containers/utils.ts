@@ -1,7 +1,7 @@
 import { MessagePlugin } from 'tdesign-vue-next';
 
 // 容器状态类型
-export type ContainerState = 'running' | 'exited' | 'created' | 'paused';
+export type ContainerState = 'running' | 'exited' | 'created' | 'paused' | 'restarting';
 
 // 容器操作类型
 export type ContainerOperation = 'starting' | 'stopping' | 'restarting';
@@ -19,7 +19,8 @@ export const getStatusTheme = (state: ContainerState): 'success' | 'warning' | '
     running: 'success',
     exited: 'warning',
     created: 'primary',
-    paused: 'default'
+    paused: 'default',
+    restarting: 'primary'
   };
   return themeMap[state] || 'default';
 };
@@ -30,7 +31,8 @@ export const getStatusIcon = (state: ContainerState): string => {
     running: 'check-circle',
     exited: 'error-circle',
     created: 'time',
-    paused: 'pause'
+    paused: 'pause',
+    restarting: 'time'
   };
   return iconMap[state] || 'help-circle';
 };
@@ -41,7 +43,8 @@ export const getStatusText = (state: ContainerState): string => {
     running: '运行中',
     exited: '已停止',
     created: '已创建',
-    paused: '已暂停'
+    paused: '已暂停',
+    restarting: '重启中'
   };
   return textMap[state] || '未知';
 };
@@ -52,7 +55,8 @@ export const getStatusColor = (state: ContainerState): string => {
     running: 'var(--td-success-color)',
     exited: 'var(--td-warning-color)',
     created: 'var(--td-primary-color)',
-    paused: 'var(--td-gray-color-6)'
+    paused: 'var(--td-gray-color-6)',
+    restarting: 'var(--td-primary-color)'
   };
   return colorMap[state] || 'var(--td-gray-color-6)';
 };

@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import { dockerWebSocketService } from './dockerWebSocket';
+import { dockerWebSocketService } from './DockerWebSocketService';
 
 // 状态变量
 export const progress = ref(0);
@@ -70,6 +70,7 @@ export const removeHandlers = () => {
 export const pullImage = (imageName: string) => {
     dockerWebSocketService.send({
         type: 'PULL_IMAGE',
+        taskId: '',
         data: { imageName }
     });
 }; 

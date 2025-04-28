@@ -29,6 +29,7 @@
 <script setup lang="ts">
 import { MessagePlugin } from 'tdesign-vue-next';
 import { onMounted, ref } from 'vue';
+import { NETWORK_TABLE_COLUMNS } from '@/constants/tableColumns';
 
 const networks = ref([]);
 const loading = ref(false);
@@ -38,14 +39,7 @@ const pagination = ref({
   total: 0,
 });
 
-const columns = [
-  { colKey: 'id', title: '网络ID', width: 200 },
-  { colKey: 'name', title: '网络名称', width: 200 },
-  { colKey: 'driver', title: '驱动', width: 100 },
-  { colKey: 'scope', title: '作用域', width: 100 },
-  { colKey: 'subnet', title: '子网', width: 200 },
-  { colKey: 'operation', title: '操作', width: 200 },
-];
+const columns = NETWORK_TABLE_COLUMNS;
 
 const fetchNetworks = async () => {
   loading.value = true;

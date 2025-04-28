@@ -196,7 +196,7 @@
                   <div class="cmd-info">
                     <div class="cmd-item">
                       <div class="cmd-label">Entrypoint</div>
-                      <div class="cmd-value">{{ containerDetail?.entrypoints?.join(' ') || '-' }}</div>
+                      <div class="cmd-value">{{ (containerDetail?.entrypoints || []).join(' ') || '-' }}</div>
                     </div>
                     <div class="cmd-item">
                       <div class="cmd-label">Command</div>
@@ -238,8 +238,8 @@
             </div>
                   <div v-else class="logs-list">
                     <div v-for="(log, index) in logs" :key="index" class="log-line">
-                      <span :class="log.type">{{ log.content.split(':')[0] }}:</span>
-                      <span>{{ log.content.split(':').slice(1).join(':') }}</span>
+                      <span :class="log.type">{{ (log.content || '').split(':')[0] }}:</span>
+                      <span>{{ (log.content || '').split(':').slice(1).join(':') }}</span>
                     </div>
                   </div>
                 </div>
@@ -359,6 +359,9 @@ import { computed, onMounted, ref, watch, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { MessagePlugin, DialogPlugin } from 'tdesign-vue-next';
 import { getContainerDetail, getContainerLogs, getContainerStats, ContainerDetail, startContainer, stopContainer, restartContainer, deleteContainer } from '@/api/container';
+import { IMAGE_OPTIONS, TYPE_OPTIONS, NETWORK_OPTIONS, RESTART_POLICY_OPTIONS, FORM_RULES } from '@/constants/container';
+import type { ContainerForm, CreateContainerParams } from '@/types/container.d.ts';
+import { mapFormDataToRequest, mapContainerDetailToForm } from '@/utils/container';
 
 const route = useRoute();
 const router = useRouter();
@@ -788,6 +791,39 @@ const formatSize = (size: number) => {
     unitIndex++;
   }
   return `${value.toFixed(2)} ${units[unitIndex]}`;
+};
+
+const INITIAL_DATA: ContainerForm = {
+  image: '',
+  tag: '',
+  autoPull: false,
+  name: '',
+  autoRemove: false,
+  restartPolicy: '',
+  portMappings: [{ hostPort: '', containerPort: '', protocol: '', ip: '' }],
+  networkMode: '',
+  ipAddress: '',
+  gateway: '',
+  volumeMappings: [],
+  devices: [],
+  environmentVariables: [],
+  privileged: false,
+  capAdd: [],
+  capDrop: [],
+  memoryLimit: '',
+  cpuLimit: '',
+  entrypoint: [],
+  cmd: [],
+  workingDir: '',
+  user: '',
+  labels: [],
+  healthcheck: {
+    test: [],
+    interval: '',
+    timeout: '',
+    retries: 0,
+    startPeriod: '',
+  },
 };
 </script>
 

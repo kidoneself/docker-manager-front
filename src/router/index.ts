@@ -21,11 +21,14 @@ const defaultRouterList: Array<RouteRecordRaw> = [
     redirect: '/docker/containers',
   },
 ];
+
 // 存放固定路由
 export const homepageRouterList: Array<RouteRecordRaw> = mapModuleRouterList(homepageModules);
 export const fixedRouterList: Array<RouteRecordRaw> = mapModuleRouterList(fixedModules);
 
-export const allRoutes = [...homepageRouterList, ...fixedRouterList, ...defaultRouterList];
+// 导入日志管理路由
+import logRoutes from './modules/log';
+export const allRoutes = [...homepageRouterList, ...fixedRouterList, ...logRoutes, ...defaultRouterList];
 
 // 固定路由模块转换为路由
 export function mapModuleRouterList(modules: Record<string, unknown>): Array<RouteRecordRaw> {

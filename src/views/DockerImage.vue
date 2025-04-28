@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { dockerWebSocketService } from '@/api/websocket/dockerWebSocket';
+import { dockerWebSocketService } from '@/api/websocket/DockerWebSocketService';
 
 interface WebSocketMessage {
   type: string;
@@ -54,6 +54,7 @@ const pullImage = () => {
   
   dockerWebSocketService.send({
     type: 'PULL_IMAGE',
+    taskId: '',
     data: { imageName: imageName.value }
   });
 };

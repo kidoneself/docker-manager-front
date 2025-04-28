@@ -4,4 +4,8 @@ import type { PullImageParams, PullImageProgress, DockerWebSocketCallbacks } fro
 export { type PullImageParams, type PullImageProgress, type DockerWebSocketCallbacks };
 
 // 导出WebSocket服务实例
-export const dockerWebSocketAPI = dockerWebSocketService; 
+export const dockerWebSocketAPI = dockerWebSocketService;
+
+// 导出镜像相关方法
+export const checkImages = dockerWebSocketService.checkImages;
+export const pullImage = dockerWebSocketService.pullImage; 

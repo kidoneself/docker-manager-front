@@ -30,31 +30,31 @@
                 <div v-for="service in appDetail?.services" :key="service.id" class="image-item">
                   <div class="image-info">
                     <span class="service-name">{{ service.name }}</span>
-                    <t-tag theme="primary" variant="light" size="small">{{ service.template.Image }}</t-tag>
+                    <t-tag theme="primary" variant="light" size="small">{{ service.template.image }}</t-tag>
                     <t-tag 
-                      :theme="imageCheckStatus[service.template.Image] ? 'success' : 'warning'"
+                      :theme="imageCheckStatus[service.template.image] ? 'success' : 'warning'"
                       variant="light" 
                       size="small"
                     >
-                      {{ imageCheckStatus[service.template.Image] ? '已存在' : '未存在' }}
+                      {{ imageCheckStatus[service.template.image] ? '已存在' : '未存在' }}
                     </t-tag>
-                    <template v-if="!imageCheckStatus[service.template.Image]">
+                    <template v-if="!imageCheckStatus[service.template.image]">
                       <t-button
-                        v-if="!imagePullStates[service.template.Image]?.status"
+                        v-if="!imagePullStates[service.template.image]?.status"
                         theme="primary"
                         size="small"
                         :disabled="isAnyImagePulling"
-                        @click="pullImage(service.template.Image)"
+                        @click="pullImage(service.template.image)"
                       >
                         拉取
                       </t-button>
                       <div v-else class="pull-progress">
                         <t-progress
-                          :percentage="imagePullStates[service.template.Image]?.progress || 0"
+                          :percentage="imagePullStates[service.template.image]?.progress || 0"
                           :label="false"
                           size="small"
                         />
-                        <span class="progress-text">{{ imagePullStates[service.template.Image]?.progress || 0 }}%</span>
+                        <span class="progress-text">{{ imagePullStates[service.template.image]?.progress || 0 }}%</span>
                       </div>
                     </template>
                   </div>
@@ -189,8 +189,9 @@ import { useRoute, useRouter } from 'vue-router';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { getAppDetail } from '@/api/appStore';
 import type { AppStoreAppDetail, ParameterConfig } from '@/api/model/appStoreModel';
-import { dockerWebSocketService } from '@/api/websocket/dockerWebSocket';
-import type { WebSocketMessage } from '@/api/websocket';
+import { dockerWebSocketService } from '@/api/websocket/DockerWebSocketService';
+import type { WebSocketMessage } from '@/api/websocket/types';
+import { checkImages } from '@/api/docker';
 
 const route = useRoute();
 const router = useRouter();
@@ -418,7 +419,7 @@ const handleInstall = async () => {
         appId: route.params.id,
         params: formData.value
       }
-    });
+    } as any);
 
     // 注册安装日志处理器
     dockerWebSocketService.on('INSTALL_LOG', (message: WebSocketMessage) => {
@@ -482,134 +483,120 @@ const getLogIcon = (type: string) => {
 //   return themes[status] || 'default';
 // };
 
-// 检查镜像是否存在
-const checkImages = () => {
+// 检查应用所需的镜像
+const checkAppImages = async () => {
     if (!appDetail.value?.services) return;
     
     isCheckingImages.value = true;
-    const images = appDetail.value.services.map(service => ({
-        name: service.template.Image.split(':')[0],
-        tag: service.template.Image.split(':')[1] || 'latest'
-    }));
+    imageCheckStatus.value = {};
     
-    // 注册消息处理器
-    dockerWebSocketService.on('INSTALL_CHECK_IMAGES_RESULT', (message: WebSocketMessage) => {
-        const results = message.data as Array<{ name: string; tag: string; exists: boolean }>;
-        results.forEach(result => {
-            const key = `${result.name}:${result.tag}`;
-            imageCheckStatus.value[key] = result.exists;
-        });
-        isCheckingImages.value = false;
+    // 初始化所有镜像的状态
+    appDetail.value.services.forEach(service => {
+        const imageName = service.template.image;
+        imageCheckStatus.value[imageName] = false;
+        initImageState(imageName);
     });
     
-    // 发送检查请求
-    dockerWebSocketService.checkImages(images);
+    try {
+        // 收集所有需要检查的镜像
+        const imagesToCheck = appDetail.value.services.map(service => {
+            const imageName = service.template.image;
+            const [name, tag = 'latest'] = imageName.split(':');
+            return { name, tag };
+        });
+        
+        // 发送检查请求
+        await checkImages(imagesToCheck);
+        
+        // 结果会通过 WebSocket 消息 'INSTALL_CHECK_IMAGES_RESULT' 返回
+        // 在 onMounted 中已经注册了相应的处理函数
+    } catch (error) {
+        console.error('检查镜像失败:', error);
+        addLog('error', `检查镜像失败: ${error}`);
+    } finally {
+        isCheckingImages.value = false;
+    }
 };
 
 // 拉取镜像
-const pullImage = (imageName: string) => {
-    // 如果有其他镜像正在拉取，直接返回
-    if (isAnyImagePulling.value) {
-        MessagePlugin.warning('请等待当前镜像拉取完成后再操作');
-        return;
-    }
-    
-    // 初始化状态
+const pullImage = async (imageName: string) => {
+  try {
+    // 初始化镜像状态
     initImageState(imageName);
-    
-    // 如果已经在拉取中，直接返回
-    if (imagePullStates.value[imageName].status) {
-        return;
-    }
-    
-    // 更新状态
+    imagePullStates.value[imageName].status = true;
     isAnyImagePulling.value = true;
-    imagePullStates.value[imageName] = {
-        status: true,
-        progress: 0,
-        taskId: null
-    };
-    
-    // 创建唯一的处理器函数
-    const progressHandler = (message: WebSocketMessage) => {
-        const { taskId, data } = message;
-        // 检查是否是当前镜像的任务
-        if (imagePullStates.value[imageName].taskId !== taskId) {
-            return;
+
+    await dockerWebSocketService.pullImage(
+      { imageName },
+      {
+        onStart: (taskId) => {
+          console.log('开始拉取镜像:', imageName, '任务ID:', taskId)
+          imagePullStates.value[imageName].taskId = taskId;
+        },
+        onProgress: (progress) => {
+          console.log('拉取进度:', progress)
+          imagePullStates.value[imageName].progress = progress.progress;
+        },
+        onComplete: async () => {
+          console.log('拉取完成:', imageName)
+          imagePullStates.value[imageName].status = false;
+          imagePullStates.value[imageName].progress = 100;
+          isAnyImagePulling.value = false;
+          MessagePlugin.success(`镜像 ${imageName} 拉取成功`)
+          
+          // 等待一小段时间确保镜像已经准备好
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // 重新检查所有镜像状态
+          await checkAppImages();
+          
+          // 强制更新 imageCheckStatus
+          const [name, tag] = imageName.split(':');
+          imageCheckStatus.value[imageName] = true;
+        },
+        onError: (error) => {
+          console.error('拉取失败:', error)
+          imagePullStates.value[imageName].status = false;
+          imagePullStates.value[imageName].progress = 0;
+          isAnyImagePulling.value = false;
+          MessagePlugin.error(`镜像 ${imageName} 拉取失败: ${error}`)
         }
-        const { progress, status } = data as { progress: number; status: string };
-        // 更新进度
-        imagePullStates.value[imageName].progress = progress;
-        console.log(`镜像 ${imageName} (任务ID: ${taskId}) 拉取进度: ${progress}%, 状态: ${status}`);
-    };
-    
-    const completeHandler = (message: WebSocketMessage) => {
-        const { taskId, data } = message;
-        // 检查是否是当前镜像的任务
-        if (imagePullStates.value[imageName].taskId !== taskId) {
-            return;
-        }
-        const { status } = data as { status: string };
-        if (status === 'success') {
-            imagePullStates.value[imageName] = {
-                status: false,
-                progress: 100,
-                taskId: null
-            };
-            isAnyImagePulling.value = false;
-            MessagePlugin.success(`镜像 ${imageName} 拉取成功`);
-            // 刷新镜像状态
-            setTimeout(() => {
-                checkImages();
-            }, 1000); // 延迟1秒后刷新状态，确保后端处理完成
-        }
-    };
-    
-    const errorHandler = (message: WebSocketMessage) => {
-        const { taskId, data } = message;
-        // 检查是否是当前镜像的任务
-        if (imagePullStates.value[imageName].taskId !== taskId) {
-            return;
-        }
-        imagePullStates.value[imageName] = {
-            status: false,
-            progress: 0,
-            taskId: null
-        };
-        isAnyImagePulling.value = false;
-        MessagePlugin.error(`镜像 ${imageName} 拉取失败: ${data}`);
-    };
-    
-    // 注册处理器
-    dockerWebSocketService.on('PULL_PROGRESS', progressHandler);
-    dockerWebSocketService.on('PULL_COMPLETE', completeHandler);
-    dockerWebSocketService.on('ERROR', errorHandler);
-    
-    // 发送拉取请求
-    dockerWebSocketService.send({
-        type: 'PULL_IMAGE',
-        data: { imageName }
-    }).then((response: WebSocketMessage) => {
-        // 保存任务ID
-        if (response.taskId) {
-            imagePullStates.value[imageName].taskId = response.taskId;
-            console.log(`镜像 ${imageName} 开始拉取，任务ID: ${response.taskId}`);
-        }
-    });
-    
-    // 在组件卸载时清理这些特定的处理器
-    onUnmounted(() => {
-        dockerWebSocketService.off('PULL_PROGRESS', progressHandler);
-        dockerWebSocketService.off('PULL_COMPLETE', completeHandler);
-        dockerWebSocketService.off('ERROR', errorHandler);
-    });
-};
+      }
+    )
+  } catch (error) {
+    console.error('拉取镜像失败:', error)
+    imagePullStates.value[imageName].status = false;
+    imagePullStates.value[imageName].progress = 0;
+    isAnyImagePulling.value = false;
+    MessagePlugin.error('拉取镜像失败')
+  }
+}
 
 // 在组件挂载时检查镜像
 onMounted(() => {
-    fetchAppDetail().then(() => {
-        checkImages();
+    // 注册 WebSocket 消息处理器
+    dockerWebSocketService.on('INSTALL_CHECK_IMAGES_RESULT', (message: WebSocketMessage) => {
+        console.log('收到镜像检查结果:', message.data);
+        const results = message.data as Array<{ name: string; tag: string; exists: boolean }>;
+        results.forEach(result => {
+            const fullImageName = `${result.name}:${result.tag}`;
+            console.log('更新镜像状态:', fullImageName, result.exists);
+            imageCheckStatus.value[fullImageName] = result.exists;
+        });
+        console.log('更新后的镜像状态:', imageCheckStatus.value);
     });
+
+    fetchAppDetail().then(() => {
+        checkAppImages();
+    });
+});
+
+// 在组件卸载时移除处理器
+onUnmounted(() => {
+    dockerWebSocketService.off('INSTALL_CHECK_IMAGES_RESULT', () => {});
+    dockerWebSocketService.off('INSTALL_LOG', () => {});
+    dockerWebSocketService.off('INSTALL_START_RESULT', () => {});
+    dockerWebSocketService.off('INSTALL_VALIDATE_RESULT', () => {});
 });
 </script>
 

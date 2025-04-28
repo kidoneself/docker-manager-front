@@ -10,10 +10,71 @@ import type {
 export class DockerWebSocketService {
   private wsClient: WebSocketClient | null = null;
   private readonly wsUrl: string;
+  private messageHandlers: Map<string, ((message: WebSocketMessage) => void)[]> = new Map();
 
   constructor() {
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     this.wsUrl = `${wsProtocol}//${window.location.host}/ws/docker`;
+  }
+
+  public async connect(): Promise<void> {
+    if (!this.wsClient) {
+      this.wsClient = new WebSocketClient({
+        url: this.wsUrl,
+        onMessage: (message: WebSocketMessage) => {
+          console.log('收到WebSocket消息:', message);
+          const handlers = this.messageHandlers.get(message.type) || [];
+          handlers.forEach(handler => handler(message));
+        },
+        onError: (error) => {
+          console.error('WebSocket错误:', error);
+        },
+        onClose: () => {
+          console.warn('WebSocket连接已关闭');
+        }
+      });
+      await this.wsClient.connect();
+    }
+  }
+
+  public on(type: string, handler: (message: WebSocketMessage) => void): void {
+    if (!this.messageHandlers.has(type)) {
+      this.messageHandlers.set(type, []);
+    }
+    this.messageHandlers.get(type)?.push(handler);
+  }
+
+  public off(type: string, handler: (message: WebSocketMessage) => void): void {
+    const handlers = this.messageHandlers.get(type);
+    if (handlers) {
+      const index = handlers.indexOf(handler);
+      if (index !== -1) {
+        handlers.splice(index, 1);
+      }
+    }
+  }
+
+  public async send(message: WebSocketMessage): Promise<void> {
+    if (!this.wsClient) {
+      await this.connect();
+    }
+    this.wsClient?.send(message);
+  }
+
+  public async checkImages(images: { name: string; tag: string }[]): Promise<void> {
+    await this.send({
+      type: 'INSTALL_CHECK_IMAGES',
+      taskId: '',
+      data: { images }
+    });
+  }
+
+  public async validateParams(params: any): Promise<void> {
+    await this.send({
+      type: 'INSTALL_VALIDATE',
+      taskId: '',
+      data: { params }
+    });
   }
 
   public async pullImage(params: PullImageParams, callbacks: DockerWebSocketCallbacks): Promise<void> {

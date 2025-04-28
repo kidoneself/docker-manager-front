@@ -7,7 +7,15 @@ export type WebSocketMessageType =
   | 'CANCEL_PULL'
   | 'CHECK_IMAGE_UPDATES'
   | 'CHECK_UPDATES_COMPLETE'
-  | 'ERROR';
+  | 'ERROR'
+  | 'INSTALL_CHECK_IMAGES'
+  | 'INSTALL_CHECK_IMAGES_RESULT'
+  | 'INSTALL_VALIDATE'
+  | 'INSTALL_PULL_IMAGE'
+  | 'UPDATE_IMAGE'
+  | 'INSTALL_START'
+  | 'INSTALL_LOG'
+  | 'INSTALL_START_RESULT';
 
 // WebSocket消息接口
 export interface WebSocketMessage {

@@ -375,7 +375,7 @@ const fetchContainers = async () => {
     const response = await getContainerList();
     containers.value = response.map((container: Container) => ({
       ...container,
-      names: container.names?.map((name) => name.replace('/', '')) || [],
+      names: container.names?.map((name: string) => name.replace('/', '')) || [],
     }));
   } catch (error) {
     await MessagePlugin.error('获取容器列表失败');

@@ -94,10 +94,12 @@ export interface ServiceConfig {
 }
 
 export interface ServiceTemplate {
-  Image: string;
-  Env: string[];
-  ExposedPorts: Record<string, any>;
-  HostConfig: HostConfig;
+  name: string;
+  image: string;
+  env: Record<string, string>;
+  ports: Record<string, string>;
+  volumes: Record<string, string>;
+  restartPolicy: string;
 }
 
 export interface HostConfig {

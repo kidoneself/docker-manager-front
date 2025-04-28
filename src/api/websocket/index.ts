@@ -1,2 +1,2 @@
-export * from './dockerWebSocket';
+export * from './DockerWebSocketService';
 export * from './dockerOperations'; 

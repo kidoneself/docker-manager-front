@@ -322,14 +322,9 @@ import { createContainer, getImageDetail, getImageList, getNetworkList, getConta
 import router from '@/router';
 
 // 导入常量和类型定义
-import {
-  ContainerForm,
-  FORM_RULES,
-  INITIAL_DATA,
-  mapFormDataToRequest,
-  RESTART_POLICY_OPTIONS,
-} from '@/pages/docker/containers/container-create/constants';
-import { mapContainerDetailToForm } from './constants';
+import { IMAGE_OPTIONS, TYPE_OPTIONS, NETWORK_OPTIONS, RESTART_POLICY_OPTIONS, FORM_RULES } from '@/constants/container';
+import type { ContainerForm, CreateContainerParams } from '@/types/container.d.ts';
+import { mapFormDataToRequest, mapContainerDetailToForm } from '@/utils/container';
 
 // 权限选项配置
 const VOLUME_PERMISSION_OPTIONS = [
@@ -338,7 +333,38 @@ const VOLUME_PERMISSION_OPTIONS = [
 ];
 
 // 表单数据：使用ref创建响应式数据
-const formData = ref(INITIAL_DATA);
+const formData = ref<ContainerForm>({
+  image: '',
+  tag: '',
+  autoPull: false,
+  name: '',
+  autoRemove: false,
+  restartPolicy: '',
+  portMappings: [{ hostPort: '', containerPort: '', protocol: '', ip: '' }],
+  networkMode: '',
+  ipAddress: '',
+  gateway: '',
+  volumeMappings: [],
+  devices: [],
+  environmentVariables: [],
+  privileged: false,
+  capAdd: [],
+  capDrop: [],
+  memoryLimit: '',
+  cpuLimit: '',
+  entrypoint: [],
+  cmd: [],
+  workingDir: '',
+  user: '',
+  labels: [],
+  healthcheck: {
+    test: [],
+    interval: '',
+    timeout: '',
+    retries: 0,
+    startPeriod: '',
+  },
+});
 const activeForm = ref(0); // 当前步骤
 const loading = ref(false); // 加载状态
 const imageOptions = ref<{ label: string; value: string }[]>([]); // 镜像选项
@@ -371,7 +397,7 @@ const fetchImageList = async () => {
         };
       });
     } else {
-      MessagePlugin.error(res.message);
+      MessagePlugin.error(String(res.message));
     }
   } catch (error) {
     console.error('获取镜像列表失败:', error);
@@ -395,7 +421,7 @@ const fetchNetworkList = async () => {
         };
       });
     } else {
-      MessagePlugin.error(res.message);
+      MessagePlugin.error(String(res.message));
     }
   } catch (error) {
     console.error('获取网络列表错误:', error);
@@ -405,21 +431,25 @@ const fetchNetworkList = async () => {
 
 const fetchContainerDetail = async (id: string) => {
   try {
+    console.log('开始获取容器详情，ID:', id);
     const res = await getContainerDetail(id);
     console.log('获取容器详情响应:', res);
     if (res.code === 0) {
-      console.log('获取容器详情响应:', res.data);
+      console.log('获取容器详情数据:', res.data);
       if (!res.data) {
         MessagePlugin.error('容器详情数据为空');
         return;
       }
-      formData.value = mapContainerDetailToForm(res.data);
+      const mappedData = mapContainerDetailToForm(res.data);
+      console.log('转换后的表单数据:', mappedData);
+      formData.value = mappedData;
+      console.log('设置后的表单数据:', formData.value);
     } else {
-      MessagePlugin.error(`获取容器详情失败: ${res.message || '未知错误'}`);
+      MessagePlugin.error('获取容器详情失败');
     }
   } catch (error) {
     console.error('获取容器详情错误:', error);
-    MessagePlugin.error(`获取容器详情失败: ${error instanceof Error ? error.message : '未知错误'}`);
+    MessagePlugin.error(String(error instanceof Error ? error.message : '未知错误'));
   }
 };
 
@@ -440,7 +470,7 @@ const handleImageChange = async (
   }
 
   if (!value) {
-    formData.value = { ...INITIAL_DATA };
+    formData.value = { ...formData.value };
     return;
   }
   try {
@@ -449,7 +479,7 @@ const handleImageChange = async (
     const res = await getImageDetail(imageName);
     if (res.code === 0) {
       const detail = res.data;
-      formData.value = { ...INITIAL_DATA };
+      formData.value = { ...formData.value };
 
       // 分割镜像名称和标签
       const [image, tag = 'latest'] = imageName.split(':');
@@ -529,7 +559,7 @@ const handleImageChange = async (
         MessagePlugin.success(`已加载镜像 ${imageName} 的配置信息`);
       }
     } else {
-      MessagePlugin.error(res.message || '获取镜像详情失败');
+      MessagePlugin.error(String(res.message));
     }
   } catch (error) {
     console.error('获取镜像详情失败:', error);
@@ -564,7 +594,10 @@ const handleNetworkModeChange = async (
   } else if (mode === 'host' || mode === 'none') {
     // 保存当前的端口映射配置
     if (formData.value.portMappings.length > 0) {
-      tempPortMappings.value = [...formData.value.portMappings];
+      tempPortMappings.value = formData.value.portMappings.map(port => ({
+        ...port,
+        ip: port.ip ?? ''
+      }));
     }
     disablePortMappings.value = true;
     showNetworkConfig.value = false;
@@ -632,16 +665,16 @@ const handleUpdateContainer = async () => {
     creating.value = true;
     const request = mapFormDataToRequest(formData.value);
     const res = await updateContainer(route.query.id as string, request);
-    if (res.code === 0) {
-      MessagePlugin.success('更新容器成功');
-      containerId.value = route.query.id as string;
-      activeForm.value = 6;
-      setTimeout(() => {
-        router.push(`/docker/containers/detail?id=${containerId.value}`);
-      }, 2000);
-    } else {
-      MessagePlugin.error(res.message || '更新容器失败');
+    if (res.code !== 0) {
+      MessagePlugin.error('更新容器失败');
+      return;
     }
+    MessagePlugin.success('更新容器成功');
+    containerId.value = route.query.id as string;
+    activeForm.value = 6;
+    setTimeout(() => {
+      router.push(`/docker/containers/detail?id=${containerId.value}`);
+    }, 2000);
   } catch (error) {
     MessagePlugin.error('更新容器失败');
   } finally {
@@ -692,7 +725,7 @@ onMounted(async () => {
 });
 
 const cmdText = computed({
-  get: () => formData.value.cmd.join(' '),
+  get: () => (formData.value.cmd || []).join(' '),
   set: (value: string) => {
     formData.value.cmd = value.split(' ').filter(Boolean);
   }

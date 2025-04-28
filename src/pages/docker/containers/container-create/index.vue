@@ -315,13 +315,9 @@ import { createContainer, getImageDetail, getImageList, getNetworkList } from '@
 import router from '@/router';
 
 // 导入常量和类型定义
-import {
-  ContainerForm,
-  FORM_RULES,
-  INITIAL_DATA,
-  mapFormDataToRequest,
-  RESTART_POLICY_OPTIONS,
-} from '@/pages/docker/containers/container-create/constants';
+import { IMAGE_OPTIONS, TYPE_OPTIONS, NETWORK_OPTIONS, RESTART_POLICY_OPTIONS, FORM_RULES } from '@/constants/container';
+import type { ContainerForm, CreateContainerParams } from '@/types/container.d.ts';
+import { mapFormDataToRequest, mapContainerDetailToForm } from '@/utils/container';
 
 // 权限选项配置
 const VOLUME_PERMISSION_OPTIONS = [
@@ -330,6 +326,38 @@ const VOLUME_PERMISSION_OPTIONS = [
 ];
 
 // 表单数据：使用ref创建响应式数据
+const INITIAL_DATA: ContainerForm = {
+  image: '',
+  tag: '',
+  autoPull: false,
+  name: '',
+  autoRemove: false,
+  restartPolicy: '',
+  portMappings: [{ hostPort: '', containerPort: '', protocol: '', ip: '' }],
+  networkMode: '',
+  ipAddress: '',
+  gateway: '',
+  volumeMappings: [],
+  devices: [],
+  environmentVariables: [],
+  privileged: false,
+  capAdd: [],
+  capDrop: [],
+  memoryLimit: '',
+  cpuLimit: '',
+  entrypoint: [],
+  cmd: [],
+  workingDir: '',
+  user: '',
+  labels: [],
+  healthcheck: {
+    test: [],
+    interval: '',
+    timeout: '',
+    retries: 0,
+    startPeriod: '',
+  },
+};
 const formData = ref(INITIAL_DATA);
 const activeForm = ref(0); // 当前步骤
 const loading = ref(false); // 加载状态
@@ -530,7 +558,10 @@ const handleNetworkModeChange = async (
   } else if (mode === 'host' || mode === 'none') {
     // 保存当前的端口映射配置
     if (formData.value.portMappings.length > 0) {
-      tempPortMappings.value = [...formData.value.portMappings];
+      tempPortMappings.value = formData.value.portMappings.map(port => ({
+        ...port,
+        ip: port.ip ?? ''
+      }));
     }
     disablePortMappings.value = true;
     showNetworkConfig.value = false;

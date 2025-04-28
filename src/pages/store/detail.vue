@@ -25,10 +25,10 @@
               <div class="service-header">
                 <div class="service-title-group">
                   <h3 class="service-title">{{ service.name }}</h3>
-                  <t-tag theme="primary" variant="light" class="image-tag">{{ service.template.Image }}</t-tag>
+                  <t-tag theme="primary" variant="light" class="image-tag">{{ service.template.image }}</t-tag>
                   <t-tag theme="warning" variant="light" class="restart-tag">
                     <t-icon name="refresh" />
-                    {{ getRestartPolicyName(service.template.HostConfig.RestartPolicy) }}
+                    {{ service.template.restartPolicy }}
                   </t-tag>
                 </div>
               </div>
@@ -36,7 +36,7 @@
             <div class="service-content">
               <!-- Tab切换 -->
               <t-tabs v-model="activeTabs[service.id]" class="service-tabs">
-                <t-tab-panel v-if="service.template.HostConfig.PortBindings" value="ports" label="端口映射">
+                <t-tab-panel v-if="service.template.ports" value="ports" label="端口映射">
                   <div class="flow-section">
                     <div class="flow-header">
                       <div class="flow-title">
@@ -49,7 +49,7 @@
                       </div>
                     </div>
                     <div class="flow-diagram">
-                      <div class="flow-item" v-for="(port, key) in service.template.HostConfig.PortBindings" :key="key">
+                      <div class="flow-item" v-for="(port, key) in service.template.ports" :key="key">
                         <div class="flow-node container">{{ key }}</div>
                         <div class="flow-arrow">
                           <t-icon name="arrow-right" />
@@ -59,25 +59,25 @@
                     </div>
                   </div>
                 </t-tab-panel>
-                <t-tab-panel v-if="service.template.HostConfig.Binds" value="mounts" label="挂载点">
+                <t-tab-panel v-if="service.template.volumes" value="volumes" label="卷挂载">
                   <div class="flow-section">
                     <div class="flow-header">
                       <div class="flow-title">
                         <t-icon name="folder" />
-                        <span>挂载点</span>
+                        <span>卷挂载</span>
                       </div>
                       <div class="flow-labels">
-                        <span class="label container">容器</span>
                         <span class="label host">主机</span>
+                        <span class="label container">容器</span>
                       </div>
                     </div>
                     <div class="flow-diagram">
-                      <div class="flow-item" v-for="(bind, index) in service.template.HostConfig.Binds" :key="index">
-                        <div class="flow-node container">{{ bind.split(':')[1] }}</div>
+                      <div class="flow-item" v-for="(volume, key) in service.template.volumes" :key="key">
+                        <div class="flow-node host">{{ key }}</div>
                         <div class="flow-arrow">
                           <t-icon name="arrow-right" />
                         </div>
-                        <div class="flow-node host">{{ bind.split(':')[0] }}</div>
+                        <div class="flow-node container">{{ volume }}</div>
                       </div>
                     </div>
                   </div>
@@ -176,10 +176,10 @@ onMounted(() => {
   // 初始化每个服务的默认Tab
   if (appDetail.value?.services) {
     appDetail.value.services.forEach(service => {
-      if (service.template.HostConfig.PortBindings) {
+      if (service.template.ports) {
         activeTabs.value[service.id] = 'ports'
-      } else if (service.template.HostConfig.Binds) {
-        activeTabs.value[service.id] = 'mounts'
+      } else if (service.template.volumes) {
+        activeTabs.value[service.id] = 'volumes'
       }
     })
   }

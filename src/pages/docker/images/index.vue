@@ -246,6 +246,8 @@ import { useRouter } from 'vue-router';
 import type { InputValue } from 'tdesign-vue-next';
 import { dockerWebSocketAPI } from '@/api/docker';
 import type { PullImageProgress } from '@/api/docker';
+import { IMAGE_TABLE_COLUMNS } from '@/constants/tableColumns';
+import { formatDate } from '@/utils/format';
 
 import {
   batchUpdateImages,
@@ -261,15 +263,7 @@ const images = ref([]);
 const loading = ref(false);
 
 // ==================== 2. 表格列配置 ====================
-const columns = [
-  { colKey: 'Id', title: '镜像ID', width: 120 },
-  { colKey: 'name', title: '镜像名称', width: 220 },
-  { colKey: 'tag', title: '标签', width: 100 },
-  { colKey: 'created', title: '当前版本时间', width: 160 },
-  { colKey: 'lastChecked', title: '上次检查', width: 140 },
-  { colKey: 'needUpdate', title: '更新状态', width: 100 },
-  { colKey: 'operation', title: '操作', width: 200 },
-];
+const columns = IMAGE_TABLE_COLUMNS;
 
 // ==================== 3. 工具函数 ====================
 const formatSize = (size: number): string => {
@@ -284,14 +278,6 @@ const formatSize = (size: number): string => {
   }
 
   return `${formattedSize.toFixed(2)} ${units[index]}`;
-};
-
-const formatDate = (date: string): string => {
-  if (!date) return '未知';
-  if (typeof date === 'string') {
-    date = new Date(date).toLocaleString();
-  }
-  return date;
 };
 
 // ==================== 4. API调用函数 ====================

@@ -1,20 +1,5 @@
 import { MessagePlugin } from 'tdesign-vue-next';
-
-export interface WebSocketMessage {
-  type: string;
-  taskId: string;
-  data: any;
-}
-
-export interface WebSocketOptions {
-  url: string;
-  onMessage?: (message: WebSocketMessage) => void;
-  onError?: (error: any) => void;
-  onClose?: (event: CloseEvent) => void;
-  maxReconnectAttempts?: number;
-  reconnectInterval?: number;
-  connectionTimeout?: number;
-}
+import type { WebSocketMessage, WebSocketOptions } from './types';
 
 export class WebSocketClient {
   private ws: WebSocket | null = null;

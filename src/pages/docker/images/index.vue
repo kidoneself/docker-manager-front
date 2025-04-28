@@ -253,7 +253,6 @@ import {
   checkImageUpdates,
   deleteImage,
   getImageList,
-  // testProxyLatency,
   updateImage,
 } from '@/api/container';
 
@@ -366,6 +365,7 @@ const confirmDelete = async () => {
 onMounted(() => {
   fetchImages();
   const cleanupInterval = setInterval(cleanupOldTasks, 60 * 60 * 1000);
+  
   onUnmounted(() => {
     clearInterval(cleanupInterval);
   });
@@ -679,41 +679,48 @@ const handlePull = () => {
 };
 
 // 处理单个镜像更新
-interface ImageUpdateParams {
-  image: string;
-  tag: string;
-  id?: string;
-  layers?: string[];
-}
-
 const handleUpdate = async (row: any) => {
   try {
-    const result = await updateImage({
+    // 添加到拉取任务列表中
+    const newTask = {
+      taskId: '', // 任务ID由后端生成
       image: row.name,
       tag: row.tag,
-      id: row.id,
-      layers: [] as string[],
-    } as ImageUpdateParams);
+      progress: 0,
+      status: 'pending',
+      message: '准备更新镜像...',
+      layers: [] as any[],
+      startTime: Date.now(),
+    };
+    activePullTasks.value = [newTask, ...activePullTasks.value];
 
-    if (result.code === 0) {
-      MessagePlugin.success('镜像更新请求已提交');
-      // 添加到拉取任务列表中
-      if (result.data && result.data.taskId) {
-        const newTask = {
-          taskId: result.data.taskId,
-          image: row.name,
-          tag: row.tag,
-          progress: 0,
-          status: 'pending',
-          message: '准备更新镜像...',
-          layers: [] as string[],
-          startTime: Date.now(),
-        };
-        activePullTasks.value = [newTask, ...activePullTasks.value];
+    // 发送WebSocket消息
+    await dockerWebSocketAPI.pullImage({
+      imageName: `${row.name}:${row.tag}`
+    }, {
+      onStart: (taskId) => {
+        newTask.taskId = taskId;
+      },
+      onProgress: (progress: PullImageProgress) => {
+        newTask.progress = progress.progress;
+        newTask.message = progress.status;
+        if (progress.layers) {
+          newTask.layers = progress.layers;
+        }
+      },
+      onComplete: () => {
+        newTask.status = 'success';
+        newTask.progress = 100;
+        newTask.message = '镜像更新完成';
+        fetchImages();
+      },
+      onError: (error) => {
+        newTask.status = 'error';
+        newTask.message = error;
       }
-    } else {
-      MessagePlugin.error(result.message || '更新镜像失败');
-    }
+    });
+
+    MessagePlugin.success('镜像更新请求已提交');
   } catch (error) {
     console.error('更新镜像失败:', error);
     MessagePlugin.error('更新镜像失败');
@@ -724,13 +731,14 @@ const handleUpdate = async (row: any) => {
 const handleCheckUpdates = async () => {
   try {
     loading.value = true;
-    const result = await checkImageUpdates();
-    if (result.code === 0) {
-      MessagePlugin.success('镜像更新检查已完成');
-      fetchImages();
-    } else {
-      MessagePlugin.error(result.message || '检查镜像更新失败');
-    }
+    
+    // 发送WebSocket消息
+    await dockerWebSocketAPI.checkImageUpdates(images.value.map(img => ({
+      name: img.name,
+      tag: img.tag
+    })));
+
+    MessagePlugin.info('开始检查镜像更新...');
   } catch (error) {
     console.error('检查镜像更新失败:', error);
     MessagePlugin.error('检查镜像更新失败');
@@ -739,35 +747,70 @@ const handleCheckUpdates = async () => {
   }
 };
 
-// 批量更新镜像
-// const handleBatchUpdate = async () => {
-//   try {
-//     const result = await batchUpdateImages({
-//       useProxy: true,
-//     });
+// 添加WebSocket消息处理
+const handleWebSocketMessage = (message: any) => {
+  if (!message) return;
 
-//     if (result.code === 0) {
-//       if (result.data.totalCount === 0) {
-//         MessagePlugin.info('没有需要更新的镜像');
-//         return;
-//       }
+  switch (message.type) {
+    case 'UPDATE_START':
+      // 更新任务状态为运行中
+      updateTaskStatus(message.taskId, 'running', '开始更新镜像...');
+      break;
+    case 'UPDATE_PROGRESS':
+      // 更新任务进度
+      updateTaskProgress(message.taskId, message.data.progress, message.data.status);
+      break;
+    case 'UPDATE_COMPLETE':
+      // 更新任务完成
+      updateTaskStatus(message.taskId, 'success', '镜像更新完成');
+      fetchImages(); // 刷新镜像列表
+      break;
+    case 'CHECK_UPDATES_START':
+      MessagePlugin.info('开始检查镜像更新...');
+      break;
+    case 'CHECK_UPDATES_COMPLETE':
+      // 更新镜像列表中的更新状态
+      if (message.data) {
+        images.value = images.value.map(img => {
+          const imageKey = `${img.name}:${img.tag}`;
+          const updateInfo = message.data[imageKey];
+          if (updateInfo) {
+            return {
+              ...img,
+              needUpdate: updateInfo.hasUpdate,
+              lastChecked: new Date().toISOString()
+            };
+          }
+          return img;
+        });
+      }
+      MessagePlugin.success('镜像更新检查完成');
+      break;
+  }
+};
 
-//       MessagePlugin.success(`批量更新已提交，共 ${result.data.totalCount} 个镜像`);
-//       // 显示详细结果
-//       // TODO: 显示批量更新结果详情
+// 更新任务状态
+const updateTaskStatus = (taskId: string, status: string, message: string) => {
+  const taskIndex = activePullTasks.value.findIndex(t => t.taskId === taskId);
+  if (taskIndex >= 0) {
+    const task = activePullTasks.value[taskIndex];
+    task.status = status;
+    task.message = message;
+    if (status === 'success' || status === 'error') {
+      task.progress = 100;
+    }
+  }
+};
 
-//       // 刷新镜像列表
-//       setTimeout(() => {
-//         fetchImages();
-//       }, 2000);
-//     } else {
-//       MessagePlugin.error(result.message || '批量更新镜像失败');
-//     }
-//   } catch (error) {
-//     console.error('批量更新镜像失败:', error);
-//     MessagePlugin.error('批量更新镜像失败');
-//   }
-// };
+// 更新任务进度
+const updateTaskProgress = (taskId: string, progress: number, status: string) => {
+  const taskIndex = activePullTasks.value.findIndex(t => t.taskId === taskId);
+  if (taskIndex >= 0) {
+    const task = activePullTasks.value[taskIndex];
+    task.progress = progress;
+    task.message = status;
+  }
+};
 
 // 修改拉取镜像确认函数
 const onPullImageConfirm = async () => {

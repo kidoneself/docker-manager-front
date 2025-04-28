@@ -392,7 +392,6 @@ export const updateImage = async (params: {
   image: string;
   tag: string;
   id?: string;
-  layers?: string[];
 }): Promise<any> => {
   return request.post({
     url: '/images/update',
